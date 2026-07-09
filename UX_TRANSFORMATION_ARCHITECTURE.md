@@ -41,15 +41,15 @@ USER_DNA = {
     peakEngagementTimes: ["6-7 AM", "12-1 PM", "9-10 PM"],
     learningStyle: "visual+practical",
     attentionSpan: 15-20 minutes,
-    motivationType: "extrinsic+intrinsic", // both types matter
+    motivationType: "extrinsic+intrinsic",
     aversionPatterns: ["passive content", "negativity"]
   },
   
   SKILL_MATRIX: {
     current: ["React", "Design thinking"],
     gaps: ["System design", "Public speaking"],
-    learning_velocity: "high", // learns quickly
-    practice_frequency: 5 // times per week
+    learning_velocity: "high",
+    practice_frequency: 5
   },
   
   VALUES: [
@@ -66,7 +66,7 @@ USER_DNA = {
   },
   
   ATTENTION_BUDGET: {
-    daily_limit: 45, // minutes
+    daily_limit: 45,
     allocated_by_goal: {
       "leadership": 25,
       "speaking": 15,
@@ -82,7 +82,7 @@ USER_DNA = {
 
 ### How Content Is Ranked (NOT by engagement metrics)
 
-Traditional social: **Engagement (likes, shares, comments)**  
+Traditional social: **Engagement (likes, shares, comments)**
 Brain Drain Pro: **Transformation Potential**
 
 ```
@@ -784,4 +784,3 @@ Every interaction justified by:
 ---
 
 **This UX Architecture maintains all current code integrity while fundamentally shifting the psychological incentives toward transformation instead of engagement.**
-
