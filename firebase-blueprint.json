@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "followerCount": { "type": "number" },
+        "followingCount": { "type": "number" }
+      },
+      "required": ["id", "username"]
+    },
+    "PersonalityTest": {
+      "title": "PersonalityTest",
+      "description": "Personality test progress and answers",
+      "type": "object",
+      "properties": {
+        "answers": { "type": "object" },
+        "isCompleted": { "type": "boolean" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["answers"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/personality_tests/{userId}": {
+      "schema": { "$ref": "#/entities/PersonalityTest" },
+      "description": "Personality tests"
+    }
+  }
+}
