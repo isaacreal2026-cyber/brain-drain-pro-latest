@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
 import { Conversation, Message } from "@/lib/types";
 import { useEffect } from "react";
 
@@ -28,6 +29,10 @@ export function useMessages() {
           lastMessageAt: message.createdAt,
         });
       }
+      await trackEvent("message_sent", {
+        conversationId: message.conversationId,
+        contentLength: message.content.length,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORES.MESSAGES] });

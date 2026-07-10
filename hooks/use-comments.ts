@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
 import { Comment, Post } from "@/lib/types";
 const STORE = "comments";
 
@@ -75,6 +76,12 @@ export function useComments() {
         });
       }
 
+      await trackEvent("comment_created", {
+        postId,
+        isReply: Boolean(parentId),
+        contentLength: content.length,
+      });
+
       return newComment;
     },
     onSuccess: (_, variables) => {
@@ -90,6 +97,11 @@ export function useComments() {
         const reactions = { ...comment.reactions };
         reactions[type] = (reactions[type] || 0) + 1;
         await idb.put(STORE, { ...comment, reactions });
+        await trackEvent("comment_reaction", {
+          postId,
+          commentId: id,
+          reactionType: type,
+        });
       }
     },
     onSuccess: (_, variables) => {

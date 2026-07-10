@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Network, Play, Trash2, Share, Link2, Activity, GitCommit, Target, MessageSquare, GitFork, GitBranch, GitPullRequest, GitMerge, FileArchive, BrainCircuit, Star, ChevronDown, Plus, Eye, Tag as TagIcon, Code, Download, Laptop, MoreHorizontal, Settings } from "lucide-react";
 import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useBrainRepo } from "@/hooks/use-brain-repo";
@@ -362,7 +363,7 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
             </div>
             
             <div className="flex flex-col gap-3 py-4 sm:justify-start">
-              <Button onClick={() => onLaunch(brain)} className="w-full h-12 text-base font-semibold shadow-primary/20 shadow-lg">
+              <Button onClick={() => { void trackEvent("brain_launch", { brainId: brain.id, source: "brain_drawer" }); onLaunch(brain); }} className="w-full h-12 text-base font-semibold shadow-primary/20 shadow-lg">
                 <Play className="w-5 h-5 mr-2 fill-current" /> Launch Diagnostic Engine
               </Button>
               <div className="grid grid-cols-2 gap-2 w-full">

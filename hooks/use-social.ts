@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
 import { Post } from "@/lib/types";
 
 export function useSocial() {
@@ -16,6 +17,13 @@ export function useSocial() {
   const addPostMutation = useMutation({
     mutationFn: async (post: Post) => {
       await idb.put("posts", post);
+      await trackEvent("post_created", {
+        postId: post.id,
+        topicId: post.topicId,
+        hasBrain: Boolean(post.brainId),
+        mediaCount: post.mediaUrls?.length || 0,
+        contentLength: post.content.length,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
@@ -54,6 +62,11 @@ export function useSocial() {
         };
         
         await idb.put("posts", updatedPost);
+        await trackEvent("post_reaction", {
+          postId,
+          reactionType,
+          active: !hasReacted,
+        });
       }
     },
     onSuccess: () => {

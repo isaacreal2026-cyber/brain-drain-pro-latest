@@ -116,7 +116,7 @@ export function SettingsPage() {
   };
 
   const handleExportAccountData = async () => {
-    const stores = ["profile", "settings", "posts", "topics", "brains", "nodes", "missions", "milestones", "comments", "conversations", "messages", "notifications", "communities", "checkins", "pathways", "books"];
+    const stores = ["profile", "settings", "posts", "topics", "brains", "nodes", "missions", "milestones", "comments", "conversations", "messages", "notifications", "communities", "checkins", "pathways", "books", "analytics_events"];
     const data: Record<string, unknown> = {};
 
     for (const store of stores) {

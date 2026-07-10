@@ -13,6 +13,7 @@ import { CommentThreadModal } from "./CommentThreadModal";
 import { useToast } from "@/hooks/use-toast";
 import { BrainChatRuntime } from "@/components/runtime/BrainChatRuntime";
 import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
 import { Brain } from "@/lib/types";
 import { useLocation } from "wouter";
 import { useProfile } from "@/hooks/use-profile";
@@ -75,6 +76,9 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
       description: copied ? description : "Clipboard access was blocked by your browser.",
       variant: copied ? "default" : "destructive",
     });
+    if (copied) {
+      void trackEvent("post_share", { postId: post.id, method: "copy" });
+    }
   };
 
   const handleSharePost = async () => {
@@ -87,6 +91,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
     try {
       if (navigator.share) {
         await navigator.share(shareData);
+        void trackEvent("post_share", { postId: post.id, method: "native" });
       } else {
         await handleCopyPostLink("Sharing is unavailable here, so the post link was copied instead.");
       }
@@ -102,6 +107,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
       title: `${action} needs backend review`,
       description: "This shared-content action is waiting for backend moderation/safety support, so no local-only change was made.",
     });
+    void trackEvent("post_moderation_waiting", { postId: post.id, action });
   };
 
   const handleToggleBookmark = async () => {

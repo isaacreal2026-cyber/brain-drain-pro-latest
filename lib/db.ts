@@ -1,7 +1,7 @@
 import { Brain, Node } from "./types";
 
 const DB_NAME = "brainBuilder";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -96,6 +96,16 @@ export function openDB(): Promise<IDBDatabase> {
       if (oldVersion < 5) {
         if (!db.objectStoreNames.contains("books")) {
           db.createObjectStore("books", { keyPath: "id" });
+        }
+      }
+
+      if (oldVersion < 6) {
+        if (!db.objectStoreNames.contains("analytics_events")) {
+          const analyticsStore = db.createObjectStore("analytics_events", { keyPath: "id" });
+          analyticsStore.createIndex("type", "type", { unique: false });
+          analyticsStore.createIndex("sessionId", "sessionId", { unique: false });
+          analyticsStore.createIndex("createdAt", "createdAt", { unique: false });
+          analyticsStore.createIndex("route", "route", { unique: false });
         }
       }
     };
