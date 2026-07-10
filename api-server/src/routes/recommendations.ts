@@ -21,7 +21,7 @@ const BrainRecommendationsResponseSchema = z.object({
   source: z.object({
     apiStyle: z.literal("flexible-product-api"),
     primaryBackendTarget: z.literal("supabase-postgres"),
-    currentStorage: z.enum(["file", "memory"]),
+    currentStorage: z.enum(["supabase", "file", "memory"]),
     currentMode: z.literal("analytics-signal-ranking"),
   }),
   limit: z.number().int().positive(),

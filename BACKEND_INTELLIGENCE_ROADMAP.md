@@ -272,3 +272,38 @@ GET /api/recommendations/brains -> Supabase brain_scores + brains metadata
 ```
 
 Keep the response contract stable so the frontend can adopt the endpoint later without redesigning Library or Brain cards.
+
+## Implemented Supabase adapter interface with JSONL fallback
+
+The analytics storage layer now supports a flexible adapter path:
+
+```text
+if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are configured:
+  write analytics events to Supabase REST table
+else if file storage is enabled:
+  write analytics events to JSONL
+else:
+  keep in-memory process aggregates
+```
+
+Environment variables:
+
+```text
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=server-side-service-role-key
+SUPABASE_ANALYTICS_TABLE=analytics_events
+SUPABASE_REQUEST_TIMEOUT_MS=2500
+ANALYTICS_DISABLE_SUPABASE=true
+ANALYTICS_EVENTS_FILE=/custom/path/events.jsonl
+ANALYTICS_DISABLE_FILE_STORAGE=true
+```
+
+Performance and reliability choices:
+
+- Supabase writes are batched per `/api/events` request.
+- Supabase requests use a short timeout to avoid slowing ingestion.
+- If Supabase is unavailable, the API falls back to JSONL storage automatically.
+- If JSONL storage is disabled or unavailable, process memory aggregates still work.
+- The frontend still stores events locally first, so analytics never blocks the user experience.
+
+This keeps the app economical for development, ready for Supabase production, and resilient if cloud services are temporarily unavailable.

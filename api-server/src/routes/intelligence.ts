@@ -27,7 +27,7 @@ const IntelligenceSummaryResponseSchema = z.object({
     apiStyle: z.literal("flexible-product-api"),
     primaryBackendTarget: z.literal("supabase-postgres"),
     localCache: z.literal("indexeddb"),
-    currentServerStorage: z.enum(["file", "memory"]),
+    currentServerStorage: z.enum(["supabase", "file", "memory"]),
     optionalFutureServices: z.array(z.enum(["redis-cache", "pgvector", "full-text-search", "queue-worker"])),
   }),
   totalEvents: z.number().int().nonnegative(),
@@ -52,7 +52,7 @@ const IntelligenceSummaryResponseSchema = z.object({
   health: z.object({
     eventVolume: z.enum(["cold_start", "warming_up", "learning", "active"]),
     lastEventAt: z.number().int().nullable(),
-    storageMode: z.enum(["file", "memory"]),
+    storageMode: z.enum(["supabase", "file", "memory"]),
   }),
   nextBackendStep: z.string(),
 });

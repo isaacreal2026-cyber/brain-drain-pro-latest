@@ -39,9 +39,11 @@ const AnalyticsEventsRequestSchema = z.object({
   clientSentAt: z.number().int().positive().optional(),
 });
 
+const AnalyticsStorageModeSchema = z.enum(["supabase", "file", "memory"]);
+
 const AnalyticsEventsResponseSchema = z.object({
   accepted: z.number().int().nonnegative(),
-  storageMode: z.enum(["file", "memory"]),
+  storageMode: AnalyticsStorageModeSchema,
 });
 
 type AnalyticsEvent = z.infer<typeof AnalyticsEventSchema>;

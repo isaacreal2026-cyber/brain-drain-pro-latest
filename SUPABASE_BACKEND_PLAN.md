@@ -493,3 +493,41 @@ else:
 ```
 
 This keeps development safe and production-ready without breaking local preview.
+
+## Adapter interface implemented
+
+The API server now has a Supabase-ready analytics adapter without requiring credentials during local development.
+
+Storage order:
+
+1. Supabase REST insert when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured.
+2. JSONL fallback when Supabase is missing or unavailable.
+3. Memory-only fallback when file storage is disabled/unavailable.
+
+This means local development remains economical and production can move to Supabase by setting environment variables, without changing the frontend or endpoint contract.
+
+Recommended first Supabase table remains:
+
+```sql
+create table analytics_events (
+  id text primary key,
+  user_id uuid null,
+  session_id text not null,
+  type text not null,
+  route text not null,
+  payload jsonb,
+  client_created_at timestamptz not null,
+  server_created_at timestamptz not null default now()
+);
+```
+
+The adapter inserts these columns now:
+
+- `id`
+- `type`
+- `session_id`
+- `route`
+- `payload`
+- `client_created_at`
+
+`server_created_at` is expected to use the database default.
