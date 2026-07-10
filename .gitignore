@@ -45,3 +45,6 @@ coverage/
 .cache/
 .env.test
 .firebase/
+
+# Local API analytics/event storage
+api-server/data/

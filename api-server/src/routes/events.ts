@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { logger } from "../lib/logger";
+import { getAnalyticsSummary, storeAnalyticsEvents } from "../lib/analytics-store";
 
 const AnalyticsEventType = z.enum([
   "session_start",
@@ -40,12 +41,10 @@ const AnalyticsEventsRequestSchema = z.object({
 
 const AnalyticsEventsResponseSchema = z.object({
   accepted: z.number().int().nonnegative(),
+  storageMode: z.enum(["file", "memory"]),
 });
 
 type AnalyticsEvent = z.infer<typeof AnalyticsEventSchema>;
-
-const MAX_RECENT_EVENTS = 1_000;
-const recentEvents: AnalyticsEvent[] = [];
 
 function sanitizePayload(payload: AnalyticsEvent["payload"]) {
   if (!payload) return undefined;
@@ -60,16 +59,9 @@ function sanitizePayload(payload: AnalyticsEvent["payload"]) {
   );
 }
 
-function rememberEvents(events: AnalyticsEvent[]) {
-  recentEvents.push(...events);
-  if (recentEvents.length > MAX_RECENT_EVENTS) {
-    recentEvents.splice(0, recentEvents.length - MAX_RECENT_EVENTS);
-  }
-}
-
 const router: IRouter = Router();
 
-router.post("/events", (req, res) => {
+router.post("/events", async (req, res) => {
   const parsed = AnalyticsEventsRequestSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -84,24 +76,35 @@ router.post("/events", (req, res) => {
     ...event,
     payload: sanitizePayload(event.payload),
   }));
-  rememberEvents(events);
 
-  const typeCounts = events.reduce<Record<string, number>>((acc, event) => {
-    acc[event.type] = (acc[event.type] || 0) + 1;
-    return acc;
-  }, {});
+  try {
+    const { storageMode } = await storeAnalyticsEvents(events);
 
-  logger.info(
-    {
-      accepted: events.length,
-      typeCounts,
-      sessionCount: new Set(events.map((event) => event.sessionId)).size,
-    },
-    "Analytics events accepted",
-  );
+    const typeCounts = events.reduce<Record<string, number>>((acc, event) => {
+      acc[event.type] = (acc[event.type] || 0) + 1;
+      return acc;
+    }, {});
 
-  const response = AnalyticsEventsResponseSchema.parse({ accepted: events.length });
-  res.status(202).json(response);
+    logger.info(
+      {
+        accepted: events.length,
+        storageMode,
+        typeCounts,
+        sessionCount: new Set(events.map((event) => event.sessionId)).size,
+      },
+      "Analytics events accepted",
+    );
+
+    const response = AnalyticsEventsResponseSchema.parse({ accepted: events.length, storageMode });
+    res.status(202).json(response);
+  } catch (error) {
+    logger.error({ err: error }, "Failed to store analytics events");
+    res.status(500).json({ accepted: 0, error: "Analytics storage unavailable" });
+  }
+});
+
+router.get("/events/summary", (_req, res) => {
+  res.json(getAnalyticsSummary());
 });
 
 export default router;

@@ -135,3 +135,55 @@ Brain Drain Pro should use backend intelligence to increase meaningful progress:
 - better knowledge graph
 
 The app should compete by being useful and empowering, not by copying empty engagement loops.
+
+## Implemented after selecting backend-first option
+
+The API server now has a lightweight durable event-storage foundation.
+
+### Added storage helper
+
+- `api-server/src/lib/analytics-store.ts`
+
+It provides:
+
+- append-only JSONL event storage
+- in-memory recent-event buffer
+- aggregate counts by event type
+- aggregate counts by route
+- aggregate counts by payload key
+- unique session count
+
+Default event file path:
+
+```text
+api-server/data/analytics-events.jsonl
+```
+
+Config options:
+
+```text
+ANALYTICS_EVENTS_FILE=/custom/path/events.jsonl
+ANALYTICS_DISABLE_FILE_STORAGE=true
+```
+
+If file storage is disabled, the endpoint still keeps in-memory summary data for the running server process.
+
+### Added server summary endpoint
+
+```text
+GET /api/events/summary
+```
+
+Returns only aggregate counts, not raw event content.
+
+This keeps the backend useful for debugging and optimization while avoiding a visible UI change.
+
+### Why JSONL first
+
+Firestore writes are currently blocked by existing Firestore rules and the API server does not yet have Firebase Admin credentials configured. JSONL storage gives a safe backend-side foundation now without requiring secrets or changing Firestore security rules.
+
+Recommended future migration:
+
+1. Keep the `/api/events` contract unchanged.
+2. Add Firestore Admin or Postgres writer behind `storeAnalyticsEvents`.
+3. Keep JSONL as a local/dev fallback.
