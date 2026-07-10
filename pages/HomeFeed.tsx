@@ -11,6 +11,9 @@ import { Plus, PenSquare } from "lucide-react";
 import { Post, Topic } from "@/lib/types";
 import { MomentumWidget } from "@/components/momentum/MomentumWidget";
 import { useLocation } from "wouter";
+import { trackEvent } from "@/lib/analytics";
+import { FeedMode, rankHomeFeedPosts, rankRelatedTopics } from "@/lib/recommendations";
+import { useAnalyticsEvents } from "@/hooks/use-recommendations";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
 
@@ -56,6 +59,7 @@ const SEED_POSTS: Post[] = [
 export function HomeFeed() {
   const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial();
   const { topics, addTopic, refreshTopics } = useTopics();
+  const { data: analyticsEvents = [] } = useAnalyticsEvents();
   const [, setLocation] = useLocation();
   
   const graphData = useMemo(() => {
@@ -84,6 +88,7 @@ export function HomeFeed() {
   }, [posts, topics]);
 
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [activeFeed, setActiveFeed] = useState<FeedMode>("foryou");
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
@@ -103,6 +108,26 @@ export function HomeFeed() {
 
   const [displayLimit, setDisplayLimit] = useState(5);
   const [observerRef, setObserverRef] = useState<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setDisplayLimit(5);
+  }, [activeFeed, selectedTopicId]);
+
+  const handleFeedChange = (value: string) => {
+    const nextFeed = value as FeedMode;
+    setActiveFeed(nextFeed);
+    void trackEvent("feed_mode_selected", { mode: nextFeed });
+  };
+
+  const handleTopicSelect = (topicId: string | null) => {
+    setSelectedTopicId(topicId);
+    void trackEvent("topic_selected", { topicId: topicId || "all" });
+  };
+
+  const recommendedTopics = useMemo(
+    () => rankRelatedTopics(posts, topics, analyticsEvents),
+    [posts, topics, analyticsEvents],
+  );
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -139,7 +164,7 @@ export function HomeFeed() {
       <MomentumWidget />
       
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
-        <Tabs defaultValue="foryou" className="w-full">
+        <Tabs value={activeFeed} onValueChange={handleFeedChange} className="w-full">
           <TabsList className="bg-transparent w-full h-13 flex p-0 border-b-0">
             <TabsTrigger value="foryou" className="flex-1 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary rounded-none px-4 pb-0 text-[15px] font-medium text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">For You</TabsTrigger>
             <TabsTrigger value="following" className="flex-1 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary rounded-none px-4 pb-0 text-[15px] font-medium text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Following</TabsTrigger>
@@ -152,7 +177,7 @@ export function HomeFeed() {
         <Button 
           variant={selectedTopicId === null ? "default" : "outline"} 
           className="rounded-full shrink-0 px-4 py-1.5 h-8 text-sm font-semibold transition-all duration-200 cursor-pointer"
-          onClick={() => setSelectedTopicId(null)}
+          onClick={() => handleTopicSelect(null)}
         >
           All
         </Button>
@@ -161,7 +186,7 @@ export function HomeFeed() {
             key={topic.id} 
             variant={selectedTopicId === topic.id ? "default" : "outline"} 
             className="rounded-full shrink-0 px-4 py-1.5 h-8 text-sm font-semibold transition-all duration-200 cursor-pointer"
-            onClick={() => setSelectedTopicId(topic.id)}
+            onClick={() => handleTopicSelect(topic.id)}
           >
             #{topic.name}
           </Button>
@@ -189,7 +214,13 @@ export function HomeFeed() {
           const postIdFromUrl = searchParams.get("postId");
           const allDisplayedPosts = postIdFromUrl 
             ? posts.filter(p => p.id === postIdFromUrl) 
-            : (selectedTopicId ? posts.filter(p => p.topicId === selectedTopicId) : posts);
+            : rankHomeFeedPosts({
+                posts,
+                topics,
+                events: analyticsEvents,
+                mode: activeFeed,
+                selectedTopicId,
+              });
             
           const displayedPosts = allDisplayedPosts.slice(0, displayLimit);
 
@@ -228,23 +259,16 @@ export function HomeFeed() {
           <div className="p-6 border-t border-border/50 bg-muted/20">
             <h3 className="font-semibold text-lg mb-4">Related Topics</h3>
             <div className="flex flex-wrap gap-2">
-              {(() => {
-                const topicCounts = posts.reduce((acc, post) => {
-                  acc[post.topicId] = (acc[post.topicId] || 0) + 1;
-                  return acc;
-                }, {} as Record<string, number>);
-
-                return Object.entries(topicCounts)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([topicId]) => topics.find(t => t.id === topicId))
-                  .filter((t): t is Topic => !!t)
-                  .map(topic => (
-                    <Button key={topic.id} variant="outline" className="rounded-full">
-                      #{topic.name}
-                    </Button>
-                  ));
-              })()}
+              {recommendedTopics.map(topic => (
+                <Button
+                  key={topic.id}
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => handleTopicSelect(topic.id)}
+                >
+                  #{topic.name}
+                </Button>
+              ))}
             </div>
           </div>
 

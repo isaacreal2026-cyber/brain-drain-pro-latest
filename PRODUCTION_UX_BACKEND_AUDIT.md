@@ -122,3 +122,46 @@ These should not be guessed:
 - Mission attachment schema
 - Mentor marketplace invite/message rules
 - Cross-device analytics sync policy
+
+## Second invisible UX/backend patch: local recommendation layer
+
+This follow-up patch keeps the same Home Feed UI and existing tabs, but gives those tabs backend meaning through local recommendation logic.
+
+### New files
+
+- `lib/recommendations.ts`
+- `hooks/use-recommendations.ts`
+
+### What changed invisibly
+
+- The existing `For You` tab now ranks posts by a local interest profile when enough local signals exist.
+- The existing `Following` tab now uses followed topics plus high-interest topics inferred from local interactions, with fallback to the original feed if there is not enough signal.
+- The existing `Trending` tab now ranks posts by engagement velocity over time.
+- Existing related-topic chips now rank by post count plus local interest signals.
+- Topic chip selection and feed tab selection are tracked as local analytics events.
+
+### What did not change
+
+- No visible UI redesign.
+- No layout change.
+- No renamed features.
+- No new visible screen.
+- No external analytics service.
+- No network calls.
+
+### Signals used by the local recommendation layer
+
+- Topic selection
+- Feed tab selection
+- Page views, especially topic routes
+- Post creation
+- Post reactions
+- Post shares
+- Comment creation/reaction
+- Search submissions/recent search selection
+- Brain launches
+- Followed topics, when available
+
+### Production value
+
+This is the first step toward Netflix/TikTok/Facebook-style product intelligence while preserving the app's current UI. The app can now begin learning locally which topics, posts, and Brains matter to a user, then use that to make the existing feed surfaces feel more relevant.

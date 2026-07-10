@@ -15,6 +15,8 @@ export type AnalyticsEventType =
   | "message_sent"
   | "search_submitted"
   | "search_recent_selected"
+  | "topic_selected"
+  | "feed_mode_selected"
   | "brain_launch";
 
 export interface AnalyticsEvent {
