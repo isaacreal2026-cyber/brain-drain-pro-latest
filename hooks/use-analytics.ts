@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { trackEvent } from "@/lib/analytics";
+import { flushAnalyticsEvents, flushAnalyticsEventsWithBeacon, trackEvent } from "@/lib/analytics";
 
 export function useRouteAnalytics() {
   const [location] = useLocation();
@@ -26,7 +26,11 @@ export function useSessionAnalytics() {
     };
 
     const handlePageHide = () => {
-      void trackEvent("session_end");
+      void trackEvent("session_end").then(() => {
+        if (!flushAnalyticsEventsWithBeacon()) {
+          void flushAnalyticsEvents();
+        }
+      });
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);

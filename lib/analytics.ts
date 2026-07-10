@@ -32,6 +32,12 @@ export interface AnalyticsEvent {
 
 const SESSION_KEY = "brain-builder-analytics-session";
 const STORE = "analytics_events";
+const MAX_BACKEND_BATCH_SIZE = 20;
+const BACKEND_FLUSH_DELAY_MS = 1_500;
+
+let backendQueue: AnalyticsEvent[] = [];
+let flushTimer: number | null = null;
+let isFlushing = false;
 
 function createId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -67,6 +73,69 @@ function sanitizePayload(payload?: Record<string, unknown>) {
   );
 }
 
+function getEventsEndpoint() {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
+  return `${apiBaseUrl.replace(/\/$/, "")}/api/events`;
+}
+
+function scheduleBackendFlush() {
+  if (typeof window === "undefined" || flushTimer) return;
+  flushTimer = window.setTimeout(() => {
+    flushTimer = null;
+    void flushAnalyticsEvents();
+  }, BACKEND_FLUSH_DELAY_MS);
+}
+
+function queueBackendEvent(event: AnalyticsEvent) {
+  backendQueue.push(event);
+
+  if (backendQueue.length >= MAX_BACKEND_BATCH_SIZE) {
+    void flushAnalyticsEvents();
+  } else {
+    scheduleBackendFlush();
+  }
+}
+
+export async function flushAnalyticsEvents() {
+  if (typeof window === "undefined" || isFlushing || backendQueue.length === 0) return;
+
+  isFlushing = true;
+  const batch = backendQueue.splice(0, MAX_BACKEND_BATCH_SIZE);
+
+  try {
+    const response = await fetch(getEventsEndpoint(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ events: batch, clientSentAt: Date.now() }),
+      keepalive: true,
+    });
+
+    // If the backend is absent in a static preview, local IndexedDB remains the source of truth.
+    if (!response.ok && response.status !== 404) {
+      console.warn("Analytics backend rejected events", response.status);
+    }
+  } catch {
+    // Best-effort only. Never rethrow or block the product experience.
+  } finally {
+    isFlushing = false;
+    if (backendQueue.length > 0) scheduleBackendFlush();
+  }
+}
+
+export function flushAnalyticsEventsWithBeacon() {
+  if (typeof navigator === "undefined" || backendQueue.length === 0 || !navigator.sendBeacon) return false;
+
+  const batch = backendQueue.splice(0, MAX_BACKEND_BATCH_SIZE);
+  const body = JSON.stringify({ events: batch, clientSentAt: Date.now() });
+  const sent = navigator.sendBeacon(getEventsEndpoint(), new Blob([body], { type: "application/json" }));
+
+  if (!sent) {
+    backendQueue = [...batch, ...backendQueue].slice(0, MAX_BACKEND_BATCH_SIZE * 3);
+  }
+
+  return sent;
+}
+
 export async function trackEvent(type: AnalyticsEventType, payload?: Record<string, unknown>) {
   const event: AnalyticsEvent = {
     id: createId(),
@@ -83,6 +152,8 @@ export async function trackEvent(type: AnalyticsEventType, payload?: Record<stri
     // Analytics must never break the product experience.
     console.warn("Analytics event was not persisted", error);
   }
+
+  queueBackendEvent(event);
 }
 
 export async function getAnalyticsEvents() {
