@@ -241,3 +241,34 @@ Additional fields:
 - `recommendedActions[]`
 
 This lets the backend communicate whether the app has enough signals to safely move specific recommendation systems from local ranking into Supabase/Postgres aggregates.
+
+## Implemented Brain recommendations API
+
+The API server now exposes:
+
+```text
+GET /api/recommendations/brains
+```
+
+This is the first recommendation endpoint behind the flexible product API layer.
+
+Current behavior:
+
+- Uses backend analytics signals from `brain_launch`, `post_created`, `post_share`, `comment_created`, and `comment_reaction` when those events include a Brain ID.
+- Returns ranked Brain IDs, scores, confidence, reasons, signal counts, and readiness score.
+- Does not require Supabase credentials yet.
+- Does not expose raw user content.
+- Keeps the current UI unchanged.
+
+Current limitation:
+
+- Because the API server does not yet have the full `brains` table, the endpoint returns Brain IDs and recommendation metadata only.
+- Supabase should later hydrate this endpoint with Brain title, author, category, visibility, and access-control metadata.
+
+Next production step:
+
+```text
+GET /api/recommendations/brains -> Supabase brain_scores + brains metadata
+```
+
+Keep the response contract stable so the frontend can adopt the endpoint later without redesigning Library or Brain cards.
