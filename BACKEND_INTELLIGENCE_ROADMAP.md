@@ -218,3 +218,26 @@ Privacy choice:
 - Backend intelligence endpoints expose aggregate counts, not raw events.
 
 This gives the app a flexible, economical API foundation while keeping Supabase/Postgres as the recommended production source of truth behind the API later.
+
+## Expanded intelligence summary contract
+
+The flexible intelligence endpoint now also reports the architecture strategy and readiness scores:
+
+```text
+GET /api/intelligence/summary
+```
+
+Additional fields:
+
+- `architecture.apiStyle = flexible-product-api`
+- `architecture.primaryBackendTarget = supabase-postgres`
+- `architecture.localCache = indexeddb`
+- `architecture.currentServerStorage = file | memory`
+- `architecture.optionalFutureServices = redis-cache, pgvector, full-text-search, queue-worker`
+- `recommendationReadinessScores.feed`
+- `recommendationReadinessScores.brains`
+- `recommendationReadinessScores.missions`
+- `recommendationReadinessScores.notifications`
+- `recommendedActions[]`
+
+This lets the backend communicate whether the app has enough signals to safely move specific recommendation systems from local ranking into Supabase/Postgres aggregates.

@@ -14,8 +14,22 @@ const RecommendationReadinessSchema = z.object({
   notifications: z.boolean(),
 });
 
+const RecommendationReadinessScoresSchema = z.object({
+  feed: z.number().int().min(0).max(100),
+  brains: z.number().int().min(0).max(100),
+  missions: z.number().int().min(0).max(100),
+  notifications: z.number().int().min(0).max(100),
+});
+
 const IntelligenceSummaryResponseSchema = z.object({
   generatedAt: z.string(),
+  architecture: z.object({
+    apiStyle: z.literal("flexible-product-api"),
+    primaryBackendTarget: z.literal("supabase-postgres"),
+    localCache: z.literal("indexeddb"),
+    currentServerStorage: z.enum(["file", "memory"]),
+    optionalFutureServices: z.array(z.enum(["redis-cache", "pgvector", "full-text-search", "queue-worker"])),
+  }),
   totalEvents: z.number().int().nonnegative(),
   uniqueSessions: z.number().int().nonnegative(),
   activeWindowEvents: z.number().int().nonnegative(),
@@ -33,6 +47,8 @@ const IntelligenceSummaryResponseSchema = z.object({
     notifications: z.number().int().nonnegative(),
   }),
   recommendationReadiness: RecommendationReadinessSchema,
+  recommendationReadinessScores: RecommendationReadinessScoresSchema,
+  recommendedActions: z.array(z.string()),
   health: z.object({
     eventVolume: z.enum(["cold_start", "warming_up", "learning", "active"]),
     lastEventAt: z.number().int().nullable(),
@@ -55,6 +71,52 @@ function getEventVolume(totalEvents: number) {
   return "active" as const;
 }
 
+function readinessScore(...weightedSignals: Array<[value: number, weight: number]>) {
+  const score = weightedSignals.reduce((total, [value, weight]) => total + value * weight, 0);
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function buildRecommendedActions(
+  signalCounts: {
+    search: number;
+    topics: number;
+    brains: number;
+    posts: number;
+    comments: number;
+    messages: number;
+    missions: number;
+    notifications: number;
+  },
+  scores: z.infer<typeof RecommendationReadinessScoresSchema>,
+) {
+  const actions: string[] = [];
+
+  if (scores.feed >= 60) {
+    actions.push("Enable server-side feed aggregate tables: user_topic_affinity and post_scores.");
+  } else {
+    actions.push("Collect more post, topic, and search signals before moving feed ranking fully server-side.");
+  }
+
+  if (scores.brains >= 45) {
+    actions.push("Prepare a Supabase brain_scores aggregate for Brain recommendations.");
+  }
+
+  if (scores.missions >= 35) {
+    actions.push("Prepare a mission_scores aggregate to tune reminder timing and reduce noisy prompts.");
+  }
+
+  if (scores.notifications >= 45) {
+    actions.push("Prepare notification relevance scoring from opens, replies, mentions, and Brain-run signals.");
+  }
+
+  if (signalCounts.messages > 0) {
+    actions.push("Keep message analytics metadata-only; do not store message content in recommendation events.");
+  }
+
+  actions.push("Keep IndexedDB as a fast local cache while Supabase/Postgres becomes the source of truth behind the API.");
+  return actions;
+}
+
 const router: IRouter = Router();
 
 router.get("/intelligence/summary", (_req, res) => {
@@ -74,15 +136,29 @@ router.get("/intelligence/summary", (_req, res) => {
     notifications: summary.byType.notification_opened || 0,
   };
 
+  const recommendationReadinessScores = {
+    feed: readinessScore([signalCounts.posts, 16], [signalCounts.topics, 12], [signalCounts.search, 10], [activeWindowEvents, 1]),
+    brains: readinessScore([signalCounts.brains, 22], [signalCounts.search, 12], [signalCounts.posts, 3]),
+    missions: readinessScore([signalCounts.missions, 30], [signalCounts.search, 8], [signalCounts.topics, 6]),
+    notifications: readinessScore([signalCounts.notifications, 24], [signalCounts.posts, 6], [signalCounts.comments, 8], [signalCounts.messages, 4]),
+  };
+
   const recommendationReadiness = {
-    feed: signalCounts.posts + signalCounts.topics + signalCounts.search >= 3,
-    brains: signalCounts.brains + signalCounts.search >= 2,
-    missions: signalCounts.missions + signalCounts.search >= 1,
-    notifications: signalCounts.notifications + signalCounts.posts + signalCounts.comments >= 2,
+    feed: recommendationReadinessScores.feed >= 40,
+    brains: recommendationReadinessScores.brains >= 35,
+    missions: recommendationReadinessScores.missions >= 25,
+    notifications: recommendationReadinessScores.notifications >= 35,
   };
 
   const response = IntelligenceSummaryResponseSchema.parse({
     generatedAt: new Date().toISOString(),
+    architecture: {
+      apiStyle: "flexible-product-api",
+      primaryBackendTarget: "supabase-postgres",
+      localCache: "indexeddb",
+      currentServerStorage: summary.storageMode,
+      optionalFutureServices: ["redis-cache", "pgvector", "full-text-search", "queue-worker"],
+    },
     totalEvents: summary.totalEvents,
     uniqueSessions: summary.uniqueSessions,
     activeWindowEvents,
@@ -91,12 +167,14 @@ router.get("/intelligence/summary", (_req, res) => {
     topPayloadKeys: summary.topPayloadKeys,
     signalCounts,
     recommendationReadiness,
+    recommendationReadinessScores,
+    recommendedActions: buildRecommendedActions(signalCounts, recommendationReadinessScores),
     health: {
       eventVolume: getEventVolume(summary.totalEvents),
       lastEventAt: summary.lastEventAt,
       storageMode: summary.storageMode,
     },
-    nextBackendStep: "Add Supabase-backed aggregates for user_topic_affinity, post_scores, brain_scores, and mission_scores.",
+    nextBackendStep: "Add Supabase-backed aggregates for user_topic_affinity, post_scores, brain_scores, and mission_scores behind this flexible API layer.",
   });
 
   res.json(response);
