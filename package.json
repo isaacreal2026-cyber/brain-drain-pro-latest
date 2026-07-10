@@ -73,6 +73,10 @@
     "vaul": "^1.1.2",
     "vite": "*",
     "wouter": "^3.3.5",
-    "zod": "*"
+    "zod": "*",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0"
   }
 }

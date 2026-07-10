@@ -1,6 +1,7 @@
 packages:
-  - "artifacts/*"
-  - "scripts"
+  - "."
+  - "api-server"
+  - "mockup-sandbox"
 allowBuilds:
   '@firebase/util': true
   esbuild: true
