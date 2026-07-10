@@ -165,3 +165,48 @@ This follow-up patch keeps the same Home Feed UI and existing tabs, but gives th
 ### Production value
 
 This is the first step toward Netflix/TikTok/Facebook-style product intelligence while preserving the app's current UI. The app can now begin learning locally which topics, posts, and Brains matter to a user, then use that to make the existing feed surfaces feel more relevant.
+
+## Third invisible UX/backend patch: mission, Brain, and notification intelligence
+
+This patch continues the backend/UX direction without visible redesign.
+
+### Brain suggestions without new UI
+
+The existing Library/Dashboard brain list now orders Brains with local relevance signals:
+
+- Favorite Brains receive priority.
+- Recently launched Brains receive priority.
+- Brains matching recent local search intent receive priority.
+- Recency remains a fallback.
+
+This makes the existing Library feel more personally useful without adding new visible recommendation cards.
+
+### Notification relevance without new UI
+
+The existing Notifications list now orders notifications by relevance rather than pure time only:
+
+- Unread notifications receive priority.
+- Mentions and replies receive stronger priority than low-signal reactions.
+- Brain-run notifications remain important because they indicate others are using the user's knowledge modules.
+- Recent local search intent can modestly boost related notifications.
+
+No notification UI was changed.
+
+### Mission reminders without new UI
+
+The existing mission reminder system now ranks active missions before showing reminders:
+
+- Active missions are prioritized by deadline proximity, lower progress, and local search/category interest.
+- At most one ranked mission reminder is shown per check cycle to reduce noisy/toast spam.
+- A `mission_reminder` analytics event is recorded locally when a reminder is shown.
+
+No mission UI was changed.
+
+### New tracked events
+
+- `notification_opened`
+- `mission_reminder`
+
+### Production value
+
+This moves the app closer to the invisible product loops used by strong consumer apps: not by redesigning screens, but by making existing surfaces feel more personally timed, relevant, and useful.

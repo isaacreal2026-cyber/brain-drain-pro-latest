@@ -17,6 +17,8 @@ export type AnalyticsEventType =
   | "search_recent_selected"
   | "topic_selected"
   | "feed_mode_selected"
+  | "notification_opened"
+  | "mission_reminder"
   | "brain_launch";
 
 export interface AnalyticsEvent {

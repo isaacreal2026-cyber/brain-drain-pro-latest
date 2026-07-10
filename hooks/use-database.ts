@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { getAnalyticsEvents } from "@/lib/analytics";
+import { rankBrainsByLocalSignals } from "@/lib/recommendations";
 import { Brain, Node, BrainData } from "@/lib/types";
 
 const generateId = () => crypto.randomUUID();
@@ -14,9 +16,12 @@ export function useDatabase() {
       const allBrains = await idb.getAll<Brain>("brains");
       if (allBrains.length === 0) {
         await seedDatabase();
-        return await idb.getAll<Brain>("brains");
+        const seededBrains = await idb.getAll<Brain>("brains");
+        const analyticsEvents = await getAnalyticsEvents();
+        return rankBrainsByLocalSignals(seededBrains, analyticsEvents);
       }
-      return allBrains;
+      const analyticsEvents = await getAnalyticsEvents();
+      return rankBrainsByLocalSignals(allBrains, analyticsEvents);
     }
   });
 

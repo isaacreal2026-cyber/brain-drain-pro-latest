@@ -1,5 +1,5 @@
 import { AnalyticsEvent } from "./analytics";
-import { Post, Topic } from "./types";
+import { Brain, Mission, Notification as AppNotification, Post, Topic } from "./types";
 
 export type FeedMode = "foryou" | "following" | "trending";
 
@@ -174,4 +174,84 @@ export function rankRelatedTopics(posts: Post[], topics: Topic[], events: Analyt
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(({ topic }) => topic);
+}
+
+export function rankBrainsByLocalSignals(brains: Brain[], events: AnalyticsEvent[]) {
+  const queryTerms = events
+    .filter((event) => event.type === "search_submitted" || event.type === "search_recent_selected")
+    .map((event) => asString(event.payload?.query).toLowerCase())
+    .filter(Boolean);
+
+  const launchedBrainScores = events.reduce((acc, event) => {
+    if (event.type === "brain_launch") {
+      const brainId = asString(event.payload?.brainId);
+      if (brainId) acc[brainId] = (acc[brainId] || 0) + 10 * ageDecay(event.createdAt);
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
+  const scoreBrain = (brain: Brain) => {
+    const searchable = `${brain.title} ${brain.category} ${brain.description}`.toLowerCase();
+    const searchBoost = queryTerms.reduce((score, query) => {
+      if (!query) return score;
+      if (searchable.includes(query)) return score + 6;
+      return score + query.split(/\s+/).filter((term) => term.length > 2 && searchable.includes(term)).length * 1.5;
+    }, 0);
+
+    const favoriteBoost = brain.isFavorite ? 8 : 0;
+    const launchedBoost = launchedBrainScores[brain.id] || 0;
+    const recencyBoost = ageDecay(brain.created_at || Date.now()) * 2;
+
+    return searchBoost + favoriteBoost + launchedBoost + recencyBoost;
+  };
+
+  return [...brains].sort((a, b) => scoreBrain(b) - scoreBrain(a) || (b.created_at || 0) - (a.created_at || 0));
+}
+
+export function rankNotificationsByRelevance(notifications: AppNotification[], events: AnalyticsEvent[]) {
+  const recentSearches = events
+    .filter((event) => event.type === "search_submitted" || event.type === "search_recent_selected")
+    .slice(-20)
+    .map((event) => asString(event.payload?.query).toLowerCase())
+    .filter(Boolean);
+
+  const typeWeight: Record<AppNotification["type"], number> = {
+    mention: 14,
+    reply: 12,
+    brain_run: 10,
+    reaction: 7,
+  };
+
+  const scoreNotification = (notification: AppNotification) => {
+    const unreadBoost = notification.read ? 0 : 20;
+    const recencyBoost = ageDecay(notification.createdAt) * 10;
+    const content = `${notification.actorName} ${notification.content}`.toLowerCase();
+    const searchBoost = recentSearches.some((query) => query && content.includes(query)) ? 5 : 0;
+    return unreadBoost + recencyBoost + typeWeight[notification.type] + searchBoost;
+  };
+
+  return [...notifications].sort((a, b) => scoreNotification(b) - scoreNotification(a) || b.createdAt - a.createdAt);
+}
+
+export function rankMissionReminders(missions: Mission[], events: AnalyticsEvent[]) {
+  const activeMissions = missions.filter((mission) => mission.status === "active");
+  const recentSearchText = events
+    .filter((event) => event.type === "search_submitted" || event.type === "search_recent_selected")
+    .slice(-30)
+    .map((event) => asString(event.payload?.query).toLowerCase())
+    .join(" ");
+
+  const scoreMission = (mission: Mission) => {
+    const targetDateBoost = mission.targetDate ? Math.max(0, 12 - Math.max((mission.targetDate - Date.now()) / DAY_MS, 0)) : 0;
+    const progressBoost = mission.progress < 50 ? 6 : mission.progress < 85 ? 3 : 1;
+    const categoryBoost = recentSearchText.includes(mission.category.toLowerCase()) ? 4 : 0;
+    const titleBoost = mission.title
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((term) => term.length > 3 && recentSearchText.includes(term)).length;
+
+    return targetDateBoost + progressBoost + categoryBoost + titleBoost;
+  };
+
+  return [...activeMissions].sort((a, b) => scoreMission(b) - scoreMission(a) || (a.targetDate || Number.MAX_SAFE_INTEGER) - (b.targetDate || Number.MAX_SAFE_INTEGER));
 }

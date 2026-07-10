@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { getAnalyticsEvents, trackEvent } from "@/lib/analytics";
+import { rankMissionReminders } from "@/lib/recommendations";
 import { Mission } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,18 +20,14 @@ export function useMissionReminders() {
   useEffect(() => {
     if (!missions.length) return;
 
-    const checkReminders = () => {
-      const activeMissions = missions.filter(m => m.status === "active");
-      
-      activeMissions.forEach(mission => {
-        // Simple logic: notify about active missions if they haven't had a review recently.
-        // We'll use local storage to track the last review notification time per mission.
+    const checkReminders = async () => {
+      const rankedActiveMissions = rankMissionReminders(missions, await getAnalyticsEvents());
+      const now = Date.now();
+      const REVIEW_INTERVAL = 4 * 60 * 60 * 1000;
+
+      for (const mission of rankedActiveMissions.slice(0, 2)) {
         const lastNotified = localStorage.getItem(`mission_notified_${mission.id}`);
-        const now = Date.now();
-        
-        // Notify every 4 hours for demo purposes, or if never notified.
-        const REVIEW_INTERVAL = 4 * 60 * 60 * 1000;
-        
+
         if (!lastNotified || (now - parseInt(lastNotified, 10) > REVIEW_INTERVAL)) {
           toast({
             title: `Review Period: ${mission.title}`,
@@ -37,15 +35,22 @@ export function useMissionReminders() {
             duration: 8000,
           });
           localStorage.setItem(`mission_notified_${mission.id}`, now.toString());
+          void trackEvent("mission_reminder", {
+            missionId: mission.id,
+            category: mission.category,
+            progress: mission.progress,
+            hasTargetDate: Boolean(mission.targetDate),
+          });
+          break;
         }
-      });
+      }
     };
 
     // Check immediately on mount/data load
-    checkReminders();
+    void checkReminders();
 
     // Then check periodically (e.g. every 10 minutes)
-    const interval = setInterval(checkReminders, 10 * 60 * 1000);
+    const interval = setInterval(() => void checkReminders(), 10 * 60 * 1000);
     
     return () => clearInterval(interval);
   }, [missions, toast]);
