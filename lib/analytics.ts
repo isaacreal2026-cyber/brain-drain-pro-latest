@@ -86,8 +86,35 @@ function scheduleBackendFlush() {
   }, BACKEND_FLUSH_DELAY_MS);
 }
 
+function sanitizePayloadForBackend(payload?: Record<string, unknown>) {
+  if (!payload) return undefined;
+
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === "query" && typeof value === "string") {
+      sanitized.queryLength = value.length;
+      continue;
+    }
+
+    if (typeof value === "string") sanitized[key] = value.slice(0, 80);
+    else if (typeof value === "number" || typeof value === "boolean" || value === null) sanitized[key] = value;
+    else if (Array.isArray(value)) sanitized[key] = value.slice(0, 10);
+    else sanitized[key] = "[redacted]";
+  }
+
+  return sanitized;
+}
+
 function queueBackendEvent(event: AnalyticsEvent) {
-  backendQueue.push(event);
+  const backendEvent: AnalyticsEvent = {
+    ...event,
+    route: typeof window !== "undefined" ? window.location.pathname : event.route.split("?")[0],
+    payload: sanitizePayloadForBackend(event.payload),
+  };
+
+  backendQueue.push(backendEvent);
 
   if (backendQueue.length >= MAX_BACKEND_BATCH_SIZE) {
     void flushAnalyticsEvents();

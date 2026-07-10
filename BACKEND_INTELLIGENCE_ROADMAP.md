@@ -187,3 +187,34 @@ Recommended future migration:
 1. Keep the `/api/events` contract unchanged.
 2. Add Firestore Admin or Postgres writer behind `storeAnalyticsEvents`.
 3. Keep JSONL as a local/dev fallback.
+
+## Implemented flexible intelligence API
+
+The API server now exposes a non-SQL intelligence endpoint:
+
+```text
+GET /api/intelligence/summary
+```
+
+This endpoint is designed for product/backend review rather than direct UI rendering. It returns aggregate readiness signals only, not raw user content.
+
+It includes:
+
+- total event count
+- unique session count
+- active 24-hour event count
+- top event types
+- top routes
+- top payload keys
+- signal counts for search, topics, brains, posts, comments, messages, missions, and notifications
+- recommendation readiness flags for feed, brains, missions, and notifications
+- event volume health stage
+- recommended next backend step
+
+Privacy choice:
+
+- Frontend still stores full local analytics for local recommendation logic.
+- Backend delivery redacts raw search query text and sends `queryLength` instead.
+- Backend intelligence endpoints expose aggregate counts, not raw events.
+
+This gives the app a flexible, economical API foundation while keeping Supabase/Postgres as the recommended production source of truth behind the API later.
