@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
 import { Post } from "@/lib/types";
@@ -47,8 +46,14 @@ export function useSocial() {
         }
         
         const newUserReactions = { ...userReactions, [reactionType]: newReactionUsers };
+        const updatedPost: Post = {
+          ...post,
+          reactions,
+          userReactions: newUserReactions,
+          ...(reactionType === "repost" ? { repostCount: reactions.repost || 0 } : {}),
+        };
         
-        await idb.put("posts", { ...post, reactions, userReactions: newUserReactions });
+        await idb.put("posts", updatedPost);
       }
     },
     onSuccess: () => {

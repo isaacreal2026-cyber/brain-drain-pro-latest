@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, PenSquare } from "lucide-react";
 import { Post, Topic } from "@/lib/types";
 import { MomentumWidget } from "@/components/momentum/MomentumWidget";
+import { useLocation } from "wouter";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
 
@@ -55,6 +56,7 @@ const SEED_POSTS: Post[] = [
 export function HomeFeed() {
   const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial();
   const { topics, addTopic, refreshTopics } = useTopics();
+  const [, setLocation] = useLocation();
   
   const graphData = useMemo(() => {
     const nodes = topics.map(t => ({ id: t.id, name: t.name }));
@@ -213,7 +215,7 @@ export function HomeFeed() {
               {postIdFromUrl ? "Post not found." : "No posts yet."}
               {postIdFromUrl && (
                 <div className="mt-4">
-                  <Button variant="outline" onClick={() => window.location.href = "/"}>View All Posts</Button>
+                  <Button variant="outline" onClick={() => setLocation("/")}>View All Posts</Button>
                 </div>
               )}
             </div>

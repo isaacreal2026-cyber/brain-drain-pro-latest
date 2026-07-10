@@ -48,6 +48,61 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
   const totalEngagements = Object.values(post.reactions || {}).reduce((a, b) => a + b, 0) + post.commentCount;
   const hoursPassed = Math.max((Date.now() - post.createdAt) / (1000 * 60 * 60), 0.1);
   const isTrending = (totalEngagements / hoursPassed) > 2;
+  const postShareUrl = `${window.location.origin}/?postId=${encodeURIComponent(post.id)}`;
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(el);
+      return copied;
+    }
+  };
+
+  const handleCopyPostLink = async (description = "Post link copied to clipboard.") => {
+    const copied = await copyText(postShareUrl);
+    toast({
+      title: copied ? "Link copied" : "Copy unavailable",
+      description: copied ? description : "Clipboard access was blocked by your browser.",
+      variant: copied ? "default" : "destructive",
+    });
+  };
+
+  const handleSharePost = async () => {
+    const shareData = {
+      title: `Check out this post from ${authorName}`,
+      text: post.content.substring(0, 100),
+      url: postShareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await handleCopyPostLink("Sharing is unavailable here, so the post link was copied instead.");
+      }
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") {
+        await handleCopyPostLink("Sharing was interrupted, so the post link was copied instead.");
+      }
+    }
+  };
+
+  const handleModerationWait = (action: "Report Post" | "Hide Post") => {
+    toast({
+      title: `${action} needs backend review`,
+      description: "This shared-content action is waiting for backend moderation/safety support, so no local-only change was made.",
+    });
+  };
 
   const handleToggleBookmark = async () => {
     if (!profile) return;
@@ -77,13 +132,6 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
     } catch {
       toast({ title: "Error", description: "Could not load the brain module.", variant: "destructive" });
     }
-  };
-
-  const handleAction = (action: string) => {
-    toast({
-      title: action,
-      description: `The ${action.toLowerCase()} action has been initiated.`,
-    })
   };
 
   const navigateToProfile = () => {
@@ -142,8 +190,8 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                     <Bookmark className="w-4 h-4 mr-2" /> Save Post
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleAction("Report Post")}>Report</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAction("Hide Post")}>Hide</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleModerationWait("Report Post")}>Report</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleModerationWait("Hide Post")}>Hide</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -239,36 +287,14 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                 onClick={() => onReact(post.id, "repost")}
               >
                 <Repeat className="w-4 h-4" />
-                <span className="text-xs font-semibold">{post.repostCount || 0}</span>
+                <span className="text-xs font-semibold">{post.repostCount || post.reactions?.repost || 0}</span>
               </Button>
 
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10 sm:ml-auto" 
-                onClick={async () => {
-                  try {
-                    const shareData = {
-                      title: `Check out this post from ${authorName}`,
-                      text: post.content.substring(0, 100),
-                      url: window.location.origin + `/post/${post.id}`
-                    };
-                    if (navigator.share) {
-                      try {
-                        await navigator.share(shareData);
-                      } catch (err) {
-                        console.error('Error sharing:', err);
-                        await navigator.clipboard.writeText(shareData.url);
-                        toast({ title: "Link copied to clipboard" });
-                      }
-                    } else {
-                      await navigator.clipboard.writeText(shareData.url);
-                      toast({ title: "Link copied to clipboard" });
-                    }
-                  } catch (e: any) {
-                    toast({ title: "Sharing failed", description: e.message || "Failed to share link", variant: "destructive" });
-                  }
-                }}
+                onClick={handleSharePost}
               >
                 <Share className="w-4 h-4" />
               </Button>
@@ -307,20 +333,20 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             <div className="flex items-center justify-between w-full pr-8">
               <DialogTitle>Share Post</DialogTitle>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full" onClick={() => handleAction("Share to External Apps")}>
+                <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full" onClick={() => void handleSharePost()}>
                   <ExternalLink className="w-4 h-4" />
                 </Button>
               </div>
             </div>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-2 pt-4">
-            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { handleAction("Share as your post"); setIsShareModalOpen(false); }}>
+            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { void handleCopyPostLink("Post link copied so you can share it as your own post."); setIsShareModalOpen(false); }}>
               <Share className="w-4 h-4" /> Share as your post
             </Button>
-            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { handleAction("Share to circles"); setIsShareModalOpen(false); }}>
+            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { void handleCopyPostLink("Post link copied for sharing to circles."); setIsShareModalOpen(false); }}>
               <BrainCircuit className="w-4 h-4" /> Share to circles
             </Button>
-            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { handleAction("Share to follower profiles"); setIsShareModalOpen(false); }}>
+            <Button variant="outline" className="justify-start gap-3 h-12" onClick={() => { void handleCopyPostLink("Post link copied for sending to follows."); setIsShareModalOpen(false); }}>
               <MessageCircle className="w-4 h-4" /> Send to follows
             </Button>
             
@@ -334,7 +360,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             </div>
 
             <div className="flex gap-2 justify-center">
-              <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => handleAction("Copy Link")}>
+              <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => void handleCopyPostLink()}>
                 <LinkIcon className="w-5 h-5" />
               </Button>
             </div>

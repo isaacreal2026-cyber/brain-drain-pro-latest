@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
-import { Comment } from "@/lib/types";
+import { Comment, Post } from "@/lib/types";
 const STORE = "comments";
 
 const uuidv4 = () => {
@@ -66,10 +66,20 @@ export function useComments() {
         createdAt: Date.now(),
       };
       await idb.put(STORE, newComment);
+
+      const post = await idb.get<Post>("posts", postId);
+      if (post) {
+        await idb.put("posts", {
+          ...post,
+          commentCount: (post.commentCount || 0) + 1,
+        });
+      }
+
       return newComment;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [STORE, "post", variables.postId] });
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
   });
 

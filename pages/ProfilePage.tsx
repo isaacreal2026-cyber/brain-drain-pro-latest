@@ -151,11 +151,53 @@ export function ProfilePage() {
     })
   };
 
-  const handleShare = () => {
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(el);
+      return copied;
+    }
+  };
+
+  const getProfileShareUrl = () => `${window.location.origin}/profile?userId=${encodeURIComponent(currentProfile.id)}`;
+
+  const handleShare = async () => {
+    const copied = await copyText(getProfileShareUrl());
     toast({
-      title: "Link Copied!",
-      description: "Profile link has been copied to your clipboard.",
+      title: copied ? "Link Copied!" : "Copy unavailable",
+      description: copied ? "Profile link has been copied to your clipboard." : "Clipboard access was blocked by your browser.",
+      variant: copied ? "default" : "destructive",
     })
+  };
+
+  const handleExternalShare = async () => {
+    const shareData = {
+      title: `${currentProfile.displayName} on Brain Drain`,
+      text: currentProfile.bio,
+      url: getProfileShareUrl(),
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await handleShare();
+      }
+    } catch (error) {
+      if ((error as Error)?.name !== "AbortError") {
+        await handleShare();
+      }
+    }
   };
 
   const currentRep = reputation || {
@@ -397,10 +439,10 @@ export function ProfilePage() {
               </div>
 
               <div className="flex gap-4 justify-center w-full">
-                <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => handleAction("Copy Link")}>
+                <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => void handleShare()}>
                   <LinkIcon className="w-5 h-5" />
                 </Button>
-                <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => handleAction("Share to External Apps")}>
+                <Button variant="outline" size="icon" className="rounded-full w-12 h-12" onClick={() => void handleExternalShare()}>
                   <ExternalLink className="w-5 h-5" />
                 </Button>
               </div>

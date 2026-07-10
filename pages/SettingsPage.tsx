@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { idb } from "@/lib/db";
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -114,10 +115,34 @@ export function SettingsPage() {
     });
   };
 
+  const handleExportAccountData = async () => {
+    const stores = ["profile", "settings", "posts", "topics", "brains", "nodes", "missions", "milestones", "comments", "conversations", "messages", "notifications", "communities", "checkins", "pathways", "books"];
+    const data: Record<string, unknown> = {};
+
+    for (const store of stores) {
+      try {
+        data[store] = await idb.getAll(store);
+      } catch {
+        data[store] = [];
+      }
+    }
+
+    const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), data }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `brain-builder-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    toast({ title: "Export ready", description: "Your local account data export has been downloaded." });
+  };
+
   const handleAction = (action: string) => {
     toast({
       title: action,
-      description: `The ${action.toLowerCase()} action has been initiated.`,
+      description: `The ${action.toLowerCase()} action needs backend support before it is wired deeper.`,
     });
   };
 
@@ -302,7 +327,7 @@ export function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <Button onClick={() => handleAction("Export Account Data")} variant="outline" className="w-full justify-between h-14 px-6 font-normal">
+              <Button onClick={() => void handleExportAccountData()} variant="outline" className="w-full justify-between h-14 px-6 font-normal">
                 <span>Export Account Data</span>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </Button>

@@ -12,6 +12,11 @@ export function SearchPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
+    const queryFromUrl = new URLSearchParams(window.location.search).get("q");
+    if (queryFromUrl) {
+      setQuery(queryFromUrl);
+    }
+
     const saved = localStorage.getItem("brain-builder-recent-searches");
     if (saved) {
       try {
