@@ -317,3 +317,71 @@
     inset: -1px;
   }
 }
+/* Approved responsive typography scale only.
+   This keeps the existing UI/features intact while preserving the requested font-size ratios. */
+:root {
+  --app-main-heading-size: 1.5rem;      /* 24px desktop */
+  --app-subheading-size: 1.25rem;       /* 20px desktop */
+  --app-body-text-size: 0.9375rem;      /* 15px desktop/tablet */
+  --app-secondary-text-size: 0.875rem;  /* 14px desktop */
+  --app-action-text-size: 0.9375rem;    /* 15px desktop */
+  --app-body-line-height: 1.5;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --app-main-heading-size: 1.375rem;     /* 22px tablet */
+    --app-subheading-size: 1.125rem;       /* 18px tablet */
+    --app-body-text-size: 0.9375rem;       /* 15px tablet */
+    --app-secondary-text-size: 0.8125rem;  /* 13px tablet */
+    --app-action-text-size: 0.9375rem;     /* 15px tablet */
+    --app-body-line-height: 1.5;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --app-main-heading-size: 1.25rem;      /* 20px mobile */
+    --app-subheading-size: 1rem;           /* 16px mobile */
+    --app-body-text-size: 0.875rem;        /* 14px mobile */
+    --app-secondary-text-size: 0.8125rem;  /* 13px mobile */
+    --app-action-text-size: 0.875rem;      /* 14px mobile */
+    --app-body-line-height: 1.45;
+  }
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-size: var(--app-body-text-size);
+  line-height: var(--app-body-line-height);
+}
+
+:where(h1, .text-4xl, .text-3xl, .text-2xl) {
+  font-size: var(--app-main-heading-size) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+}
+
+:where(h2, h3, h4, .text-xl, .text-lg) {
+  font-size: var(--app-subheading-size) !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+:where(p, li, input, textarea, select, .text-base, .text-sm, .text-\[15px\]) {
+  font-size: var(--app-body-text-size) !important;
+  line-height: var(--app-body-line-height) !important;
+}
+
+:where(.text-muted-foreground, .text-xs, .text-\[10px\], .text-\[11px\], .text-\[12px\], time, small) {
+  font-size: var(--app-secondary-text-size) !important;
+  line-height: 1.38 !important;
+}
+
+:where(button, [role="button"], label) {
+  font-size: var(--app-action-text-size);
+  font-weight: 500;
+}
