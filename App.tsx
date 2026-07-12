@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { ShareBrainModal } from "@/components/ShareBrainModal";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useMissionReminders } from "@/hooks/use-mission-reminders";
+import { useRouteAnalytics, useSessionAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -171,6 +172,8 @@ function Router() {
   useShortcuts();
   usePrefetch();
   useMissionReminders();
+  useSessionAnalytics();
+  useRouteAnalytics();
   
   return (
     <AppShell>

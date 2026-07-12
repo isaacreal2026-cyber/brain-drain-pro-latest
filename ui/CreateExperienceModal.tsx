@@ -5,6 +5,7 @@ import { Plus, X, Search, Pin, Layout, Lightbulb, TrendingUp, Sparkles, Bookmark
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateExperienceModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface CreateExperienceModalProps {
 export function CreateExperienceModal({ isOpen, onClose, onCreatePost }: CreateExperienceModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const trendingIdeas = [
     { title: "Neuroscience Hacks", icon: Sparkles },
@@ -56,8 +58,11 @@ export function CreateExperienceModal({ isOpen, onClose, onCreatePost }: CreateE
 
             <button 
               onClick={() => {
-                // Future board creation
                 onClose();
+                toast({
+                  title: "Product decision needed",
+                  description: "Board creation needs an approved data model before it is wired deeper.",
+                });
               }}
               className="flex flex-col items-center justify-center p-6 bg-background rounded-2xl border shadow-sm hover:border-primary/50 hover:shadow-md transition-all group"
             >

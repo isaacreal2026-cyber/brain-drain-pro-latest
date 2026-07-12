@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
+import { getAnalyticsEvents, trackEvent } from "@/lib/analytics";
+import { rankNotificationsByRelevance } from "@/lib/recommendations";
 import { Notification } from "@/lib/types";
 import { useEffect } from "react";
 
@@ -10,7 +12,11 @@ export function useNotifications() {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: [STORE],
-    queryFn: () => idb.getAll<Notification>(STORE),
+    queryFn: async () => {
+      const allNotifications = await idb.getAll<Notification>(STORE);
+      const analyticsEvents = await getAnalyticsEvents();
+      return rankNotificationsByRelevance(allNotifications, analyticsEvents);
+    },
   });
 
   const { mutateAsync: markAsRead } = useMutation({
@@ -18,6 +24,11 @@ export function useNotifications() {
       const notification = await idb.get<Notification>(STORE, id);
       if (notification) {
         await idb.put(STORE, { ...notification, read: true });
+        await trackEvent("notification_opened", {
+          notificationId: id,
+          type: notification.type,
+          hadPostId: Boolean(notification.postId),
+        });
       }
     },
     onSuccess: () => {

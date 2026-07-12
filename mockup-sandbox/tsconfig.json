@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": [
+    "src",
+    "mockupPreviewPlugin.ts",
+    "vite.config.ts"
+  ],
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "jsx": "react-jsx",
+    "types": [
+      "node",
+      "vite/client"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    }
+  }
+}

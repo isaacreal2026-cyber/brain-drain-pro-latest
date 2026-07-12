@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
-import { Comment } from "@/lib/types";
+import { trackEvent } from "@/lib/analytics";
+import { Comment, Post } from "@/lib/types";
 const STORE = "comments";
 
 const uuidv4 = () => {
@@ -66,10 +67,26 @@ export function useComments() {
         createdAt: Date.now(),
       };
       await idb.put(STORE, newComment);
+
+      const post = await idb.get<Post>("posts", postId);
+      if (post) {
+        await idb.put("posts", {
+          ...post,
+          commentCount: (post.commentCount || 0) + 1,
+        });
+      }
+
+      await trackEvent("comment_created", {
+        postId,
+        isReply: Boolean(parentId),
+        contentLength: content.length,
+      });
+
       return newComment;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [STORE, "post", variables.postId] });
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
   });
 
@@ -80,6 +97,11 @@ export function useComments() {
         const reactions = { ...comment.reactions };
         reactions[type] = (reactions[type] || 0) + 1;
         await idb.put(STORE, { ...comment, reactions });
+        await trackEvent("comment_reaction", {
+          postId,
+          commentId: id,
+          reactionType: type,
+        });
       }
     },
     onSuccess: (_, variables) => {

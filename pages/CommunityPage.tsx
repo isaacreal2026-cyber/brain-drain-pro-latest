@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCommunities } from "@/hooks/use-communities";
 import { useReputation } from "@/hooks/use-reputation";
@@ -50,6 +51,7 @@ function useCheckins() {
 function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
+  const [, setLocation] = useLocation();
   const mood = moodEmojis.find((m: any) => m.score === c.moodScore)?.emoji || "😐";
 
   const handleReply = () => {
@@ -63,7 +65,7 @@ function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
 
   const handleLinkBrain = () => {
     toast({title: "Redirecting...", description: "Taking you to the library to choose or create a brain."});
-    setTimeout(() => window.location.href = "/library", 1000);
+    setTimeout(() => setLocation("/library"), 1000);
   };
 
   return (

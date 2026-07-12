@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { trackEvent } from "@/lib/analytics";
 
 export function SearchPage() {
   const [query, setQuery] = useState("");
@@ -12,6 +13,11 @@ export function SearchPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
+    const queryFromUrl = new URLSearchParams(window.location.search).get("q");
+    if (queryFromUrl) {
+      setQuery(queryFromUrl);
+    }
+
     const saved = localStorage.getItem("brain-builder-recent-searches");
     if (saved) {
       try {
@@ -27,12 +33,16 @@ export function SearchPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
     
-    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 10);
+    const updated = [trimmedQuery, ...recentSearches.filter(s => s !== trimmedQuery)].slice(0, 10);
     setRecentSearches(updated);
     localStorage.setItem("brain-builder-recent-searches", JSON.stringify(updated));
-    // In a real app, this would trigger search results fetch
+    void trackEvent("search_submitted", {
+      query: trimmedQuery,
+      queryLength: trimmedQuery.length,
+    });
   };
 
   const removeRecent = (search: string, e: React.MouseEvent) => {
@@ -48,6 +58,10 @@ export function SearchPage() {
     const updated = [search, ...recentSearches.filter(s => s !== search)].slice(0, 10);
     setRecentSearches(updated);
     localStorage.setItem("brain-builder-recent-searches", JSON.stringify(updated));
+    void trackEvent("search_recent_selected", {
+      query: search,
+      queryLength: search.length,
+    });
     inputRef.current?.focus();
   };
 
