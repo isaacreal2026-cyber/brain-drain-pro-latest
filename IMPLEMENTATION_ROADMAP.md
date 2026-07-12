@@ -260,6 +260,33 @@
 
 ---
 
+## Phase 6: Infrastructure & 1M User Scale (Weeks 17-20)
+
+### High-Concurrency Backend
+**Goal:** Handle 750,000+ peak concurrent users without performance degradation.
+
+**Tasks:**
+- [ ] Implement stream-based high-frequency analytics logging
+- [ ] Scale API server with Kubernetes auto-scaling clusters
+- [ ] Deploy global CDN (Cloudflare/Akamai) for lower continental latency
+- [ ] Optimize database indexing for high-volume telemetry queries
+
+**Estimated Effort:** 40 hours
+**Priority:** CRITICAL
+
+### Efficiency & "Jungle Work"
+**Goal:** Harden the foundation for massive data ingestion.
+
+**Tasks:**
+- [ ] Implement edge-side analytics pre-processing
+- [ ] Reduce over-the-wire payload size by 40% through strict schema enforcement
+- [ ] Implement Redis-backed session management for rapid state recovery
+
+**Estimated Effort:** 25 hours
+**Priority:** HIGH
+
+---
+
 ## Technology Stack Recommendations
 
 ### Frontend (Already In Place)

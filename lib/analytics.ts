@@ -32,7 +32,7 @@ export interface AnalyticsEvent {
 
 const SESSION_KEY = "brain-builder-analytics-session";
 const STORE = "analytics_events";
-const MAX_BACKEND_BATCH_SIZE = 20;
+const MAX_BACKEND_BATCH_SIZE = 100;
 const BACKEND_FLUSH_DELAY_MS = 1_500;
 
 let backendQueue: AnalyticsEvent[] = [];
@@ -98,10 +98,11 @@ function sanitizePayloadForBackend(payload?: Record<string, unknown>) {
       continue;
     }
 
-    if (typeof value === "string") sanitized[key] = value.slice(0, 80);
+    // Stricter truncation for 1M user scale efficiency
+    if (typeof value === "string") sanitized[key] = value.slice(0, 40);
     else if (typeof value === "number" || typeof value === "boolean" || value === null) sanitized[key] = value;
-    else if (Array.isArray(value)) sanitized[key] = value.slice(0, 10);
-    else sanitized[key] = "[redacted]";
+    else if (Array.isArray(value)) sanitized[key] = value.slice(0, 5);
+    else sanitized[key] = "redacted";
   }
 
   return sanitized;
