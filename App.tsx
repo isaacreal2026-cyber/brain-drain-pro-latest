@@ -31,6 +31,7 @@ const PersonalityTestPage = lazy(() => import("@/pages/PersonalityTestPage").the
 const MessagesPage = lazy(() => import("@/pages/MessagesPage").then(module => ({ default: module.MessagesPage })));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage").then(module => ({ default: module.NotificationsPage })));
 const CommunityPage = lazy(() => import("@/pages/CommunityPage").then(module => ({ default: module.CommunityPage })));
+const UsageAnalyticsPage = lazy(() => import("@/pages/UsageAnalyticsPage").then(module => ({ default: module.UsageAnalyticsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -192,6 +193,7 @@ function Router() {
             <Route path="/topics" component={TopicsPage} />
             <Route path="/topics/:id" component={TopicDetailPage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/analytics" component={UsageAnalyticsPage} />
             <Route component={HomeFeed} />
           </Switch>
         </RouteErrorBoundary>
