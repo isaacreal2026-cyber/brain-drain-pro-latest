@@ -1,4 +1,5 @@
-import { mkdir, appendFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
+import { createWriteStream, type WriteStream } from "node:fs";
 import path from "node:path";
 
 export interface AnalyticsEvent {
@@ -37,6 +38,8 @@ let currentStorageMode: AnalyticsStorageMode = hasSupabaseConfig()
   : process.env.ANALYTICS_DISABLE_FILE_STORAGE === "true"
     ? "memory"
     : "file";
+
+let logStream: WriteStream | null = null;
 
 function hasSupabaseConfig() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -104,9 +107,18 @@ async function appendEventsToSupabase(events: AnalyticsEvent[]) {
 
 async function appendEventsToFile(events: AnalyticsEvent[]) {
   const filePath = getAnalyticsFilePath();
-  await mkdir(path.dirname(filePath), { recursive: true });
+
+  if (!logStream) {
+    await mkdir(path.dirname(filePath), { recursive: true });
+    logStream = createWriteStream(filePath, { flags: "a", encoding: "utf8" });
+  }
+
   const lines = events.map((event) => JSON.stringify(event)).join("\n") + "\n";
-  await appendFile(filePath, lines, "utf8");
+  const canWrite = logStream.write(lines);
+
+  if (!canWrite) {
+    await new Promise((resolve) => logStream?.once("drain", resolve));
+  }
 }
 
 function rememberInMemory(events: AnalyticsEvent[]) {
