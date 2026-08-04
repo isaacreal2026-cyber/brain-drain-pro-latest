@@ -133,6 +133,8 @@ export function HomeFeed() {
   );
 
   useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
         setDisplayLimit((prev) => prev + 5);

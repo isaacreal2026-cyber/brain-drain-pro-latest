@@ -424,7 +424,7 @@ export function PostCreator({
                       <Plus className="w-4 h-4 mr-2" />
                       Create Brain
                     </Button>
-                    <Button variant="ghost" className="w-full text-muted-foreground" onClick={handleNext}>Skip</Button>
+                    <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setStep(2)}>Skip &amp; return to post</Button>
                   </div>
                 </div>
               )}
