@@ -34,27 +34,40 @@ function makeGuestProfile(uid: string): UserProfile {
 
 function loadFirebaseServices() {
   return Promise.all([
-    import("@/lib/firebase"),
+    import("@/lib/firebase-auth"),
     import("firebase/auth"),
-    import("firebase/firestore"),
-  ]).then(([firebase, authApi, firestoreApi]) => ({
+  ]).then(([firebase, authApi]) => ({
     auth: firebase.auth,
-    db: firebase.db,
     onAuthStateChanged: authApi.onAuthStateChanged,
     signInWithPopup: authApi.signInWithPopup,
     GoogleAuthProvider: authApi.GoogleAuthProvider,
     signOut: authApi.signOut,
+  }));
+}
+
+let firebaseServicesPromise: ReturnType<typeof loadFirebaseServices> | null = null;
+let firestoreServicesPromise: ReturnType<typeof loadFirestoreServices> | null = null;
+
+function getFirebaseServices() {
+  if (!firebaseServicesPromise) firebaseServicesPromise = loadFirebaseServices();
+  return firebaseServicesPromise;
+}
+
+function loadFirestoreServices() {
+  return Promise.all([
+    import("@/lib/firebase-firestore"),
+    import("firebase/firestore"),
+  ]).then(([firebase, firestoreApi]) => ({
+    db: firebase.db,
     doc: firestoreApi.doc,
     getDoc: firestoreApi.getDoc,
     setDoc: firestoreApi.setDoc,
   }));
 }
 
-let firebaseServicesPromise: ReturnType<typeof loadFirebaseServices> | null = null;
-
-function getFirebaseServices() {
-  if (!firebaseServicesPromise) firebaseServicesPromise = loadFirebaseServices();
-  return firebaseServicesPromise;
+function getFirestoreServices() {
+  if (!firestoreServicesPromise) firestoreServicesPromise = loadFirestoreServices();
+  return firestoreServicesPromise;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -122,8 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(appUser);
 
               try {
-                const userDocRef = services.doc(services.db, "users", currentUser.uid);
-                const userDoc = await services.getDoc(userDocRef);
+                const firestore = await getFirestoreServices();
+                const userDocRef = firestore.doc(firestore.db, "users", currentUser.uid);
+                const userDoc = await firestore.getDoc(userDocRef);
                 if (userDoc.exists()) {
                   setProfile(userDoc.data() as UserProfile);
                 } else {
@@ -136,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     followerCount: 0,
                     followingCount: 0,
                   };
-                  await services.setDoc(userDocRef, newProfile);
+                  await firestore.setDoc(userDocRef, newProfile);
                   setProfile(newProfile);
                 }
               } catch (error: unknown) {
@@ -235,8 +249,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isGuestUser(user)) {
         await idb.put("profile", { ...updatedProfile, id: GUEST_PROFILE_ID });
       } else {
-        const services = await getFirebaseServices();
-        await services.setDoc(services.doc(services.db, "users", user.uid), updatedProfile, { merge: true });
+        const firestore = await getFirestoreServices();
+        await firestore.setDoc(firestore.doc(firestore.db, "users", user.uid), updatedProfile, { merge: true });
       }
       setProfile(updatedProfile);
     } catch (error: any) {

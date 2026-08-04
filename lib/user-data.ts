@@ -21,7 +21,7 @@ const PT_SETTINGS_ID = "personality-test";
 
 function loadFirestoreServices() {
   return Promise.all([
-    import("@/lib/firebase"),
+    import("@/lib/firebase-firestore"),
     import("firebase/firestore"),
   ]).then(([firebase, firestore]) => ({
     db: firebase.db,
