@@ -17,6 +17,15 @@ export function useMessages() {
     queryFn: () => idb.getAll<Conversation>(STORES.CONVERSATIONS),
   });
 
+  const { mutateAsync: addConversation } = useMutation({
+    mutationFn: async (conversation: Conversation) => {
+      await idb.put(STORES.CONVERSATIONS, conversation);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [STORES.CONVERSATIONS] });
+    },
+  });
+
   const { mutateAsync: addMessage } = useMutation({
     mutationFn: async (message: Message) => {
       await idb.put(STORES.MESSAGES, message);
@@ -100,6 +109,7 @@ export function useMessages() {
     conversations,
     isLoadingConversations,
     getMessages,
+    addConversation,
     addMessage,
   };
 }

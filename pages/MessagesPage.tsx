@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Conversation, Message } from "@/lib/types";
 
 export function MessagesPage() {
-  const { conversations, getMessages, addMessage } = useMessages();
+  const { conversations, getMessages, addConversation, addMessage } = useMessages();
   const { brains } = useDatabase();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -67,9 +67,19 @@ export function MessagesPage() {
     setNewMessage("");
   };
 
-  const handleStartConversation = () => {
-    if (!newChatUser.trim()) return;
-    setActiveId(`new-conv-${Date.now()}`);
+  const handleStartConversation = async () => {
+    const participantId = newChatUser.trim();
+    if (!participantId) return;
+
+    const conversationId = `new-conv-${crypto.randomUUID()}`;
+    await addConversation({
+      id: conversationId,
+      participantIds: ["me", participantId],
+      lastMessage: "",
+      lastMessageAt: Date.now(),
+      unreadCount: 0,
+    });
+    setActiveId(conversationId);
     setIsNewChatOpen(false);
     setNewChatUser("");
   };
