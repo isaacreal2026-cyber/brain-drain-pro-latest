@@ -252,9 +252,11 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                   {post.mediaUrls.map((url, i) => (
                     <img 
                       key={i} 
-                      src={url} 
-                      alt="Post attachment" 
-                      className="rounded-xl object-cover w-full h-48 sm:h-64 border border-border/50 cursor-pointer hover:opacity-90 transition-opacity" 
+                      src={url}
+                      alt="Post attachment"
+                      loading="lazy"
+                      decoding="async"
+                      className="rounded-xl object-cover w-full h-48 sm:h-64 border border-border/50 cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => setSelectedImage(url)}
                     />
                   ))}

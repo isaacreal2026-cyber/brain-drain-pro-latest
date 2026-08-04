@@ -116,7 +116,7 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
                   
                   {post.mediaUrls && post.mediaUrls.length > 0 && (
                      <div className="mb-4 rounded-xl overflow-hidden border">
-                      <img src={post.mediaUrls[0]} alt="Post media" className="w-full h-auto object-cover max-h-96" />
+                      <img src={post.mediaUrls[0]} alt="Post media" loading="lazy" decoding="async" className="w-full h-auto object-cover max-h-96" />
                     </div>
                   )}
                   
