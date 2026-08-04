@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,11 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CalendarPlus, Image as ImageIcon, BrainCircuit, Hash, MapPin, Plus, X } from "lucide-react";
-import { WizardModal } from "@/components/WizardModal";
 import { BrainData, Post, PostEvent, PostType } from "@/lib/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { idb } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+
+const WizardModal = lazy(() =>
+  import("@/components/WizardModal").then((module) => ({ default: module.WizardModal })),
+);
 
 export interface CommunityOption {
   id: string;
@@ -462,11 +465,15 @@ export function PostCreator({
         </DialogContent>
       </Dialog>
 
-      <WizardModal
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        onSave={handleBrainSave}
-      />
+      {isWizardOpen && (
+        <Suspense fallback={null}>
+          <WizardModal
+            isOpen={isWizardOpen}
+            onClose={() => setIsWizardOpen(false)}
+            onSave={handleBrainSave}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

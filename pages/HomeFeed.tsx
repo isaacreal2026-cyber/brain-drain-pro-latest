@@ -3,7 +3,6 @@ import { useSocial } from "@/hooks/use-social";
 import { useTopics } from "@/hooks/use-topics";
 import { PostCard } from "@/components/feed/PostCard";
 import { PostSkeleton } from "@/components/feed/PostSkeleton";
-import { PostCreator } from "@/components/feed/PostCreator";
 import { FloatingCreateButton } from "@/components/ui/CreateExperienceModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import { FeedMode, rankHomeFeedPosts, rankRelatedTopics } from "@/lib/recommenda
 import { useAnalyticsEvents } from "@/hooks/use-recommendations";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
+const PostCreator = lazy(() => import("@/components/feed/PostCreator").then((module) => ({ default: module.PostCreator })));
 
 // Helper to seed data if empty
 const SEED_TOPICS: Topic[] = [
@@ -321,14 +321,18 @@ export function HomeFeed() {
 
       <FloatingCreateButton onCreatePost={() => openCreator("post")} />
 
-      <PostCreator
-        isOpen={isCreatorOpen}
-        onClose={() => setIsCreatorOpen(false)}
-        onPostCreated={handleCreatePost}
-        topics={topics}
-        communities={communities}
-        postType={creatorPostType}
-      />
+      {isCreatorOpen && (
+        <Suspense fallback={null}>
+          <PostCreator
+            isOpen={isCreatorOpen}
+            onClose={() => setIsCreatorOpen(false)}
+            onPostCreated={handleCreatePost}
+            topics={topics}
+            communities={communities}
+            postType={creatorPostType}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

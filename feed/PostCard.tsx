@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ArrowBigDown, ArrowBigUp, CalendarDays, MapPin, Users, MessageCircle, MoreHorizontal, BrainCircuit, Bookmark, Share, Link as LinkIcon, ExternalLink, Repeat } from "lucide-react";
 import { Brain, getPostDownvoteCount, getPostUpvoteCount, Post } from "@/lib/types";
@@ -11,11 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { CommentThreadModal } from "./CommentThreadModal";
 import { useToast } from "@/hooks/use-toast";
-import { BrainChatRuntime } from "@/components/runtime/BrainChatRuntime";
 import { idb } from "@/lib/db";
 import { trackEvent } from "@/lib/analytics";
 import { useLocation } from "wouter";
 import { useProfile } from "@/hooks/use-profile";
+
+const BrainChatRuntime = lazy(() =>
+  import("@/components/runtime/BrainChatRuntime").then((module) => ({ default: module.BrainChatRuntime })),
+);
 
 interface PostCardProps {
   post: Post;
@@ -476,11 +479,15 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
         </DialogContent>
       </Dialog>
 
-      <BrainChatRuntime
-        brain={activeBrain}
-        isOpen={isBrainOpen}
-        onClose={() => { setIsBrainOpen(false); setActiveBrain(null); }}
-      />
+      {isBrainOpen && (
+        <Suspense fallback={null}>
+          <BrainChatRuntime
+            brain={activeBrain}
+            isOpen={isBrainOpen}
+            onClose={() => { setIsBrainOpen(false); setActiveBrain(null); }}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
