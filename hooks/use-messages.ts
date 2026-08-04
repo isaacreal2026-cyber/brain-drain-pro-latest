@@ -9,12 +9,18 @@ const STORES = {
   CONVERSATIONS: "conversations",
 };
 
-export function useMessages() {
+export function useMessages(activeConversationId?: string) {
   const queryClient = useQueryClient();
 
   const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
     queryKey: [STORES.CONVERSATIONS],
     queryFn: () => idb.getAll<Conversation>(STORES.CONVERSATIONS),
+  });
+
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+    queryKey: [STORES.MESSAGES, activeConversationId],
+    queryFn: () => idb.getAllByIndex<Message>(STORES.MESSAGES, "conversationId", activeConversationId as string),
+    enabled: Boolean(activeConversationId),
   });
 
   const { mutateAsync: addConversation } = useMutation({
@@ -48,13 +54,6 @@ export function useMessages() {
       queryClient.invalidateQueries({ queryKey: [STORES.CONVERSATIONS] });
     },
   });
-
-  const getMessages = (conversationId: string) => {
-    return useQuery({
-      queryKey: [STORES.MESSAGES, conversationId],
-      queryFn: () => idb.getAllByIndex<Message>(STORES.MESSAGES, "conversationId", conversationId),
-    });
-  };
 
   // Seed data
   useEffect(() => {
@@ -108,7 +107,8 @@ export function useMessages() {
   return {
     conversations,
     isLoadingConversations,
-    getMessages,
+    messages,
+    isLoadingMessages,
     addConversation,
     addMessage,
   };

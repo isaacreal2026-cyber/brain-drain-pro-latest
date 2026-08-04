@@ -11,12 +11,11 @@ interface CommentThreadProps {
 }
 
 export function CommentThread({ postId }: CommentThreadProps) {
-  const { getCommentsForPost, buildCommentTree, addComment, reactToComment } = useComments();
-  const { data: comments = [], isLoading } = getCommentsForPost(postId);
+  const { comments, isLoadingComments, buildCommentTree, addComment, reactToComment } = useComments(postId);
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [content, setContent] = useState("");
 
-  if (isLoading) {
+  if (isLoadingComments) {
     return <div className="p-4 text-sm text-muted-foreground text-center">Loading comments...</div>;
   }
 

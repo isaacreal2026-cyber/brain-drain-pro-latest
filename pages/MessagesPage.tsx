@@ -11,10 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Conversation, Message } from "@/lib/types";
 
 export function MessagesPage() {
-  const { conversations, getMessages, addConversation, addMessage } = useMessages();
-  const { brains } = useDatabase();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const { conversations, messages: storedMessages, addConversation, addMessage } = useMessages(activeId || undefined);
+  const { brains } = useDatabase();
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [newChatUser, setNewChatUser] = useState("");
 
@@ -35,8 +35,6 @@ export function MessagesPage() {
   const activeConversation = combinedConversations.find((c) => c.id === activeId);
   const isBrainChat = activeId?.startsWith("brain-");
 
-  const { data: realMessages = [] } = getMessages(activeId || "");
-  
   const messages: Message[] = useMemo(() => {
     if (isBrainChat) {
       const bTitle = activeConversation?.participantIds[0] || "Brain";
@@ -50,8 +48,8 @@ export function MessagesPage() {
         }
       ];
     }
-    return realMessages;
-  }, [isBrainChat, realMessages, activeId, activeConversation]);
+    return storedMessages;
+  }, [isBrainChat, storedMessages, activeId, activeConversation]);
 
   const handleSend = async () => {
     if (!newMessage.trim() || !activeId) return;
