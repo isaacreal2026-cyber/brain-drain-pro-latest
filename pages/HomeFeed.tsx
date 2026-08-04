@@ -14,6 +14,7 @@ import { useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { FeedMode, rankHomeFeedPosts, rankRelatedTopics } from "@/lib/recommendations";
 import { useAnalyticsEvents } from "@/hooks/use-recommendations";
+import { useToast } from "@/hooks/use-toast";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
 const PostCreator = lazy(() => import("@/components/feed/PostCreator").then((module) => ({ default: module.PostCreator })));
@@ -63,6 +64,7 @@ export function HomeFeed() {
   const { communities } = useCommunities();
   const { data: analyticsEvents = [] } = useAnalyticsEvents();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   const graphData = useMemo(() => {
     const nodes = topics.map(t => ({ id: t.id, name: t.name }));
@@ -97,17 +99,31 @@ export function HomeFeed() {
 
   useEffect(() => {
     const seedData = async () => {
-      if (!isLoading && posts.length === 0 && topics.length === 0 && !isSeeding) {
-        setIsSeeding(true);
-        for (const t of SEED_TOPICS) await addTopic(t);
-        for (const p of SEED_POSTS) await addPost(p);
+      if (isLoading || isSeeding || (posts.length > 0 && topics.length > 0)) return;
+
+      setIsSeeding(true);
+      try {
+        if (topics.length === 0) {
+          for (const topic of SEED_TOPICS) await addTopic(topic);
+        }
+        if (posts.length === 0) {
+          for (const post of SEED_POSTS) await addPost(post);
+        }
         await refreshTopics();
         await refreshPosts();
+      } catch (error) {
+        console.error("Failed to seed the home feed", error);
+        toast({
+          title: "Feed setup failed",
+          description: "We could not load starter content. Please refresh and try again.",
+          variant: "destructive",
+        });
+      } finally {
         setIsSeeding(false);
       }
     };
-    seedData();
-  }, [posts.length, topics.length, isLoading]);
+    void seedData();
+  }, [posts.length, topics.length, isLoading, isSeeding, toast]);
 
   const [displayLimit, setDisplayLimit] = useState(5);
   const [observerRef, setObserverRef] = useState<HTMLDivElement | null>(null);
