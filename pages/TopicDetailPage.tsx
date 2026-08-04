@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Hash, Users, ArrowLeft, MessageSquare, Heart, Share2 } from "lucide-react";
+import { Hash, Users, ArrowLeft, ArrowBigDown, ArrowBigUp, MessageSquare, Share2 } from "lucide-react";
 import { useTopics } from "@/hooks/use-topics";
 import { useSocial } from "@/hooks/use-social";
-import { Topic, Post } from "@/lib/types";
+import { getPostDownvoteCount, getPostUpvoteCount, Topic, Post } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -132,10 +132,14 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-6 text-muted-foreground">
-                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-2 hover:text-red-500" onClick={() => reactToPost(post.id, "love")}>
-                      <Heart className="w-4 h-4" /> 
-                      <span className="text-xs">{post.reactions.love || 0}</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Button variant="ghost" size="sm" aria-label="Upvote" className="h-8 px-2 gap-2 hover:text-primary" onClick={() => reactToPost(post.id, "upvote")}>
+                      <ArrowBigUp className="w-4 h-4" />
+                      <span className="text-xs">Upvote {getPostUpvoteCount(post)}</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" aria-label="Downvote" className="h-8 px-2 gap-2 hover:text-destructive" onClick={() => reactToPost(post.id, "downvote")}>
+                      <ArrowBigDown className="w-4 h-4" />
+                      <span className="text-xs">Downvote {getPostDownvoteCount(post)}</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="h-8 px-2 gap-2 hover:text-primary" onClick={() => handleAction("Open Discussion")}>
                       <MessageSquare className="w-4 h-4" />

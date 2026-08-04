@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { Heart, ThumbsUp, MessageCircle, Share2, MoreHorizontal, BrainCircuit, Bookmark, Share, Link as LinkIcon, ExternalLink, Repeat } from "lucide-react";
-import { Post } from "@/lib/types";
+import { format, formatDistanceToNow } from "date-fns";
+import { ArrowBigDown, ArrowBigUp, CalendarDays, MapPin, Users, MessageCircle, MoreHorizontal, BrainCircuit, Bookmark, Share, Link as LinkIcon, ExternalLink, Repeat } from "lucide-react";
+import { Brain, getPostDownvoteCount, getPostUpvoteCount, Post } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { BrainChatRuntime } from "@/components/runtime/BrainChatRuntime";
 import { idb } from "@/lib/db";
 import { trackEvent } from "@/lib/analytics";
-import { Brain } from "@/lib/types";
 import { useLocation } from "wouter";
 import { useProfile } from "@/hooks/use-profile";
 
@@ -41,12 +40,16 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
   const { profile, updateProfile } = useProfile();
 
   const currentUserId = "me";
-  const isLiked = post.userReactions?.like?.includes(currentUserId) || false;
-  const isLoved = post.userReactions?.love?.includes(currentUserId) || false;
-  
+  const isUpvoted = Boolean(
+    post.userReactions?.upvote?.includes(currentUserId) ||
+    post.userReactions?.like?.includes(currentUserId) ||
+    post.userReactions?.love?.includes(currentUserId),
+  );
+  const isDownvoted = post.userReactions?.downvote?.includes(currentUserId) || false;
+
   const isBookmarked = profile?.bookmarkedPostIds?.includes(post.id) || false;
 
-  const totalEngagements = Object.values(post.reactions || {}).reduce((a, b) => a + b, 0) + post.commentCount;
+  const totalEngagements = getPostUpvoteCount(post) + getPostDownvoteCount(post) + (post.repostCount || post.reactions?.repost || 0) + post.commentCount;
   const hoursPassed = Math.max((Date.now() - post.createdAt) / (1000 * 60 * 60), 0.1);
   const isTrending = (totalEngagements / hoursPassed) > 2;
   const postShareUrl = `${window.location.origin}/?postId=${encodeURIComponent(post.id)}`;
@@ -204,7 +207,43 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             
             <div className="mt-1 space-y-3">
               <p className="whitespace-pre-wrap text-sm sm:text-[15px] leading-relaxed break-words">{post.content}</p>
-              
+
+              {post.event && (
+                <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary shrink-0">
+                      <CalendarDays className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">Event</p>
+                      <h3 className="font-semibold text-base break-words">{post.event.title}</h3>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                      <span>
+                        {Number.isNaN(new Date(post.event.startsAt).getTime())
+                          ? "Date to be announced"
+                          : format(new Date(post.event.startsAt), "EEE, MMM d · p")}
+                      </span>
+                    </div>
+                    {post.event.location && (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin className="w-4 h-4 text-primary shrink-0" />
+                        <span className="truncate">{post.event.location}</span>
+                      </div>
+                    )}
+                  </div>
+                  {post.event.communityName && (
+                    <Badge variant="secondary" className="w-fit gap-1 bg-primary/10 text-primary hover:bg-primary/15">
+                      <Users className="w-3.5 h-3.5" />
+                      {post.event.communityName}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
               {post.mediaUrls && post.mediaUrls.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
                   {post.mediaUrls.map((url, i) => (
@@ -234,9 +273,16 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                 </div>
               )}
 
-              {topicName && (
+              {(topicName || (post.postType && post.postType !== "post")) && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge variant="secondary" className="bg-secondary/10 text-secondary hover:bg-secondary/20">#{topicName}</Badge>
+                  {topicName && (
+                    <Badge variant="secondary" className="bg-secondary/10 text-secondary hover:bg-secondary/20">#{topicName}</Badge>
+                  )}
+                  {post.postType && post.postType !== "post" && (
+                    <Badge variant="outline" className="capitalize">
+                      {post.postType}
+                    </Badge>
+                  )}
                   {isTrending && (
                     <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
                       🔥 Trending
@@ -247,24 +293,28 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             </div>
 
             <div className="flex items-center justify-between sm:justify-start sm:gap-4 mt-4 text-muted-foreground">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={`gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer ${isLoved ? 'text-rose-500 bg-rose-500/10' : 'text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10'}`}
-                onClick={() => onReact(post.id, "love")}
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Upvote"
+                className={`gap-1.5 h-8 px-2 sm:px-3 rounded-full transition-all duration-200 cursor-pointer ${isUpvoted ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
+                onClick={() => onReact(post.id, "upvote")}
               >
-                <Heart className={`w-4 h-4 ${isLoved ? 'fill-current text-rose-500' : ''}`} />
-                <span className="text-xs font-semibold">{post.reactions?.love || 0}</span>
+                <ArrowBigUp className={`w-4 h-4 ${isUpvoted ? "fill-current" : ""}`} />
+                <span className="hidden sm:inline text-xs font-semibold">Upvote</span>
+                <span className="text-xs font-semibold">{getPostUpvoteCount(post)}</span>
               </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={`gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer ${isLiked ? 'text-sky-500 bg-sky-500/10' : 'text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10'}`}
-                onClick={() => onReact(post.id, "like")}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Downvote"
+                className={`gap-1.5 h-8 px-2 sm:px-3 rounded-full transition-all duration-200 cursor-pointer ${isDownvoted ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
+                onClick={() => onReact(post.id, "downvote")}
               >
-                <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-current text-sky-500' : ''}`} />
-                <span className="text-xs font-semibold">{post.reactions?.like || 0}</span>
+                <ArrowBigDown className={`w-4 h-4 ${isDownvoted ? "fill-current" : ""}`} />
+                <span className="hidden sm:inline text-xs font-semibold">Downvote</span>
+                <span className="text-xs font-semibold">{getPostDownvoteCount(post)}</span>
               </Button>
 
               <Button 

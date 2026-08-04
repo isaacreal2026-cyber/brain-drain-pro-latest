@@ -7,8 +7,9 @@ import { PostCreator } from "@/components/feed/PostCreator";
 import { FloatingCreateButton } from "@/components/ui/CreateExperienceModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, PenSquare } from "lucide-react";
-import { Post, Topic } from "@/lib/types";
+import { CircleHelp, MessageSquare, PenSquare } from "lucide-react";
+import { Post, PostType, Topic } from "@/lib/types";
+import { useCommunities } from "@/hooks/use-communities";
 import { MomentumWidget } from "@/components/momentum/MomentumWidget";
 import { useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
@@ -31,7 +32,7 @@ const SEED_POSTS: Post[] = [
     topicId: "t3",
     content: "Just finalized my mental model for React suspense transitions. The key is understanding that the render phase can be interrupted safely. Created a small brain to test your knowledge on it.",
     commentCount: 42,
-    reactions: { love: 12, like: 104 },
+    reactions: { upvote: 104, downvote: 2 },
     createdAt: Date.now() - 3600000,
     brainId: "dummy-brain-1"
   },
@@ -41,7 +42,7 @@ const SEED_POSTS: Post[] = [
     topicId: "t1",
     content: "Why do we keep rebuilding the same wheels? A thread on system architecture and standardizing our modules.",
     commentCount: 12,
-    reactions: { like: 45 },
+    reactions: { upvote: 45, downvote: 1 },
     createdAt: Date.now() - 86400000,
   },
   {
@@ -51,7 +52,7 @@ const SEED_POSTS: Post[] = [
     content: "If a machine encodes human knowledge, does it possess a fraction of our consciousness?",
     mediaUrls: ["https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1000&auto=format&fit=crop"],
     commentCount: 89,
-    reactions: { love: 200, like: 10 },
+    reactions: { upvote: 200, downvote: 4 },
     createdAt: Date.now() - 172800000,
   }
 ];
@@ -59,6 +60,7 @@ const SEED_POSTS: Post[] = [
 export function HomeFeed() {
   const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial();
   const { topics, addTopic, refreshTopics } = useTopics();
+  const { communities } = useCommunities();
   const { data: analyticsEvents = [] } = useAnalyticsEvents();
   const [, setLocation] = useLocation();
   
@@ -90,6 +92,7 @@ export function HomeFeed() {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [activeFeed, setActiveFeed] = useState<FeedMode>("foryou");
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [creatorPostType, setCreatorPostType] = useState<PostType>("post");
   const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
@@ -147,6 +150,11 @@ export function HomeFeed() {
     };
   }, [observerRef]);
 
+  const openCreator = (postType: PostType = "post") => {
+    setCreatorPostType(postType);
+    setIsCreatorOpen(true);
+  };
+
   const handleCreatePost = async (post: Post) => {
     await addPost(post);
   };
@@ -194,9 +202,9 @@ export function HomeFeed() {
       </div>
 
       <div className="p-4 border-b border-border/50">
-        <div 
+        <div
           className="flex items-center gap-4 bg-muted/30 p-3 rounded-2xl cursor-text hover:bg-muted/50 transition-colors border border-border/50"
-          onClick={() => setIsCreatorOpen(true)}
+          onClick={() => openCreator("post")}
         >
           <div className="w-10 h-10 rounded-full bg-primary/20 flex flex-shrink-0 items-center justify-center text-primary font-bold text-sm">
             ME
@@ -204,7 +212,35 @@ export function HomeFeed() {
           <div className="flex-1 text-muted-foreground">
             Share your knowledge...
           </div>
-          <Button size="sm" className="rounded-full px-4 font-semibold">Post</Button>
+          <Button size="sm" className="rounded-full px-4 font-semibold" onClick={(event) => { event.stopPropagation(); openCreator("post"); }}>
+            Post
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-1 sm:gap-2 mt-3 px-1">
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("question")}
+          >
+            <CircleHelp className="w-4 h-4" />
+            <span>Ask</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("answer")}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Answer</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("post")}
+          >
+            <PenSquare className="w-4 h-4" />
+            <span>Post</span>
+          </Button>
         </div>
       </div>
 
@@ -281,13 +317,15 @@ export function HomeFeed() {
         </>
       )}
 
-      <FloatingCreateButton onCreatePost={() => setIsCreatorOpen(true)} />
+      <FloatingCreateButton onCreatePost={() => openCreator("post")} />
 
-      <PostCreator 
-        isOpen={isCreatorOpen} 
-        onClose={() => setIsCreatorOpen(false)} 
+      <PostCreator
+        isOpen={isCreatorOpen}
+        onClose={() => setIsCreatorOpen(false)}
         onPostCreated={handleCreatePost}
         topics={topics}
+        communities={communities}
+        postType={creatorPostType}
       />
     </div>
   );

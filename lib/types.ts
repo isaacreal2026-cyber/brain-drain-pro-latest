@@ -102,18 +102,44 @@ export interface BrainData {
   nodes: Node[];
 }
 
+export type PostType = "post" | "question" | "answer";
+
+export interface PostEvent {
+  title: string;
+  startsAt: number;
+  endsAt?: number;
+  location?: string;
+  communityId?: string;
+  communityName?: string;
+}
+
 export interface Post {
   id: string;
   userId: string;
   topicId: string;
   content: string;
+  postType?: PostType;
+  event?: PostEvent;
   mediaUrls?: string[];
   brainId?: string; // Optional link to a brain
-  reactions: Record<string, number>; // e.g. { "love": 10, "like": 5 }
-  userReactions?: Record<string, string[]>; // e.g. { "love": ["user1"], "like": ["user2"] }
+  reactions: Record<string, number>; // e.g. { "upvote": 10, "downvote": 1 }
+  userReactions?: Record<string, string[]>; // e.g. { "upvote": ["user1"], "downvote": ["user2"] }
   commentCount: number;
   repostCount?: number;
   createdAt: number;
+}
+
+/**
+ * Keeps posts created before the vote UI update readable while new posts use
+ * the explicit upvote/downvote keys.
+ */
+export function getPostUpvoteCount(post: Post): number {
+  if (typeof post.reactions?.upvote === "number") return post.reactions.upvote;
+  return (post.reactions?.like || 0) + (post.reactions?.love || 0);
+}
+
+export function getPostDownvoteCount(post: Post): number {
+  return post.reactions?.downvote || 0;
 }
 
 export interface Topic {
