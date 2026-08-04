@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Brain } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Share, Copy, Link as LinkIcon, Network } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";

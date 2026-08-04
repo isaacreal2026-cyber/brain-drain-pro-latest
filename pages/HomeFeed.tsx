@@ -4,7 +4,7 @@ import { useTopics } from "@/hooks/use-topics";
 import { PostCard } from "@/components/feed/PostCard";
 import { PostSkeleton } from "@/components/feed/PostSkeleton";
 import { FloatingCreateButton } from "@/components/ui/CreateExperienceModal";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { CircleHelp, MessageSquare, PenSquare } from "lucide-react";
 import { Post, PostType, Topic } from "@/lib/types";

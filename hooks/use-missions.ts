@@ -1,6 +1,5 @@
-import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Mission, Milestone, XPEvent } from "../lib/types";
+import { Mission, Milestone } from "../lib/types";
 import { idb } from "../lib/db";
 import { useReputation } from "./use-reputation";
 

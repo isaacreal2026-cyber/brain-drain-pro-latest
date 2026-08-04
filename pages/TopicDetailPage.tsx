@@ -5,7 +5,7 @@ import { useTopics } from "@/hooks/use-topics";
 import { useSocial } from "@/hooks/use-social";
 import { getPostDownvoteCount, getPostUpvoteCount, Topic, Post } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast";
 
 export function TopicDetailPage({ params }: { params: { id: string } }) {

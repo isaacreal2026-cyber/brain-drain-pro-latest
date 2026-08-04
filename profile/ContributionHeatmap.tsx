@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { format, subDays, startOfWeek, addDays, getMonth, isSameMonth } from 'date-fns';
+import { getMonth } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DayData {
@@ -16,7 +16,6 @@ interface ContributionHeatmapProps {
 }
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const ContributionHeatmap: React.FC<ContributionHeatmapProps> = ({ data, onDayClick, selectedDate }) => {
   const colorScale = ['bg-muted', 'bg-emerald-200 dark:bg-emerald-900', 'bg-emerald-400 dark:bg-emerald-700', 'bg-emerald-600 dark:bg-emerald-500', 'bg-emerald-800 dark:bg-emerald-400'];

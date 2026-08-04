@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Brain, Node, BrainData, BrainVersion, Branch, PullRequest } from "@/lib/types";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Brain, Node } from "@/lib/types";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Network, Play, Trash2, Share, Link2, Activity, GitCommit, Target, MessageSquare, GitFork, GitBranch, GitPullRequest, GitMerge, FileArchive, BrainCircuit, Star, ChevronDown, Plus, Eye, Tag as TagIcon, Code, Download, Laptop, MoreHorizontal, Settings } from "lucide-react";
+import { Network, Play, Link2, Activity, GitCommit, Target, MessageSquare, GitFork, GitBranch, GitPullRequest, GitMerge, FileArchive, BrainCircuit, Star, ChevronDown, Plus, Eye, Tag as TagIcon, Code, Download, Laptop, MoreHorizontal, Settings } from "lucide-react";
 import { idb } from "@/lib/db";
 import { trackEvent } from "@/lib/analytics";
 import { format } from "date-fns";
@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBrainRepo } from "@/hooks/use-brain-repo";
 import { BrainChatRuntime } from "./runtime/BrainChatRuntime";
 import { BranchManagerSidebar } from "./BranchManagerSidebar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuGroup, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -30,7 +30,7 @@ interface BrainDrawerProps {
   onFork?: (brain: Brain) => void;
 }
 
-export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport, onFork }: BrainDrawerProps) {
+export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport }: BrainDrawerProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isBranchManagerOpen, setIsBranchManagerOpen] = useState(false);

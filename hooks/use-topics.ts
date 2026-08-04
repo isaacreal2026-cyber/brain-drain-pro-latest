@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
 import { Topic } from "@/lib/types";

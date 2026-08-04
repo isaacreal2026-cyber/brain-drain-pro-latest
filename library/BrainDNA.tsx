@@ -1,20 +1,11 @@
-import { useState } from "react";
-import { Brain, BrainDNA as BrainDNAType } from "@/lib/types";
 import { useDatabase } from "@/hooks/use-database";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Network, ArrowRight } from "lucide-react";
+import { Network } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function BrainDNA() {
   const { brains } = useDatabase();
   // Mock DNA data for now since we don't have a way to populate it yet
-  const dnaConnections: BrainDNAType[] = brains.map(b => ({
-    id: b.id + "-dna",
-    brainId: b.id,
-    childBrainIds: [],
-    linkedBrainIds: [],
-  }));
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3 mb-6">

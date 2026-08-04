@@ -14,7 +14,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { idb } from "@/lib/db";
-import { Post, Topic, Mission, Milestone, Brain } from "@/lib/types";
+import { Post, Topic, Brain } from "@/lib/types";
 
 // Eager load critical routes
 import { HomeFeed } from "@/pages/HomeFeed";

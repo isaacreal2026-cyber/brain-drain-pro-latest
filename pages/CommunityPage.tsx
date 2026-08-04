@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Search, Plus, Shield, Stethoscope, Gamepad2, BookOpen, Activity, MessageCircle, Flame, ArrowUp, ArrowDown, MessageSquare, BrainCircuit, Handshake, Network, Crosshair, Zap, Puzzle, Sprout, Target, Heart, Smile, Star, Award } from "lucide-react";
+import { Users, Search, Shield, Stethoscope, Gamepad2, BookOpen, Activity, MessageCircle, Flame, ArrowUp, ArrowDown, MessageSquare, BrainCircuit, Handshake, Network, Crosshair, Zap, Puzzle, Sprout, Target, Heart, Smile, Star, Award } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -122,7 +122,7 @@ function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
 }
 
 export function CommunityPage() {
-  const { communities, addCommunity } = useCommunities();
+  const { communities } = useCommunities();
   const { checkins, addCheckin, updateCheckin } = useCheckins();
   const { addXPEvent } = useReputation();
   const { toast } = useToast();
@@ -132,8 +132,6 @@ export function CommunityPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [checkinMessage, setCheckinMessage] = useState("");
   const [moodScore, setMoodScore] = useState<number>(0);
-
-  const [weeklyGoal, setWeeklyGoal] = useState("");
 
   const filtered = communities.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 

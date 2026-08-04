@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { GitBranch, GitCommit, Plus, Trash2, CheckCircle2, Search, MoreHorizontal, Edit2, Shield, GitMerge, GitCompare, User, Clock } from "lucide-react";
-import { BrainVersion, Branch } from "@/lib/types";
+import { GitBranch, GitCommit, Plus, Trash2, Search, MoreHorizontal, Edit2, Shield, GitMerge, GitCompare, User, Clock } from "lucide-react";
+import { Branch } from "@/lib/types";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -23,7 +23,6 @@ interface BranchManagerSidebarProps {
 export function BranchManagerSidebar({
   isOpen,
   onClose,
-  brainId,
   branches,
   activeBranch,
   onSwitchBranch,

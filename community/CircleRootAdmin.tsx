@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Shield, Settings, Users, Activity, Radio, Lock, BookOpen, AlertTriangle } from "lucide-react";
+import { Shield, Settings, Users, Activity, Radio, BookOpen, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
   communityName: string;
 }
 
-export function CircleRootAdmin({ communityId, communityName }: Props) {
+export function CircleRootAdmin({ communityName }: Props) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
@@ -235,6 +235,6 @@ export function CircleRootAdmin({ communityId, communityName }: Props) {
   );
 }
 
-function Badge({ children, variant, className }: any) {
+function Badge({ children, className }: any) {
   return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${className}`}>{children}</span>;
 }

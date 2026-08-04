@@ -3,7 +3,7 @@ import { Brain, Node } from "@/lib/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { idb } from "@/lib/db";
-import { Play, RotateCcw, AlertTriangle, CheckCircle2, ChevronRight, Activity } from "lucide-react";
+import { RotateCcw, AlertTriangle, CheckCircle2, Activity } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface RuntimeEngineProps {
