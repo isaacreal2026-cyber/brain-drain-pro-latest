@@ -206,7 +206,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             </div>
             
             <div className="mt-1 space-y-3">
-              <p className="whitespace-pre-wrap text-sm sm:text-[15px] leading-relaxed break-words">{post.content}</p>
+              <p className="whitespace-pre-wrap text-[15px] leading-[1.45] break-words">{post.content}</p>
 
               {post.event && (
                 <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 space-y-3">
@@ -301,6 +301,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                 onClick={() => onReact(post.id, "upvote")}
               >
                 <ArrowBigUp className={`w-4 h-4 ${isUpvoted ? "fill-current" : ""}`} />
+                <span className="sm:hidden text-xs font-semibold">Up</span>
                 <span className="hidden sm:inline text-xs font-semibold">Upvote</span>
                 <span className="text-xs font-semibold">{getPostUpvoteCount(post)}</span>
               </Button>
@@ -313,6 +314,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                 onClick={() => onReact(post.id, "downvote")}
               >
                 <ArrowBigDown className={`w-4 h-4 ${isDownvoted ? "fill-current" : ""}`} />
+                <span className="sm:hidden text-xs font-semibold">Down</span>
                 <span className="hidden sm:inline text-xs font-semibold">Downvote</span>
                 <span className="text-xs font-semibold">{getPostDownvoteCount(post)}</span>
               </Button>

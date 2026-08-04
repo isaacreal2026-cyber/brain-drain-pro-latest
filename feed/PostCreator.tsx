@@ -253,7 +253,7 @@ export function PostCreator({
                     value={content}
                     onChange={(event) => setContent(event.target.value)}
                     placeholder={contentPlaceholder}
-                    className="flex-1 min-h-[150px] resize-none border-none focus-visible:ring-0 text-lg px-0 py-2 bg-transparent shadow-none"
+                    className="flex-1 min-h-[150px] resize-none border-none focus-visible:ring-0 text-base sm:text-lg px-0 py-2 bg-transparent shadow-none"
                     autoFocus
                   />
 
