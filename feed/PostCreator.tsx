@@ -163,7 +163,9 @@ export function PostCreator({
 
   const handleBrainSave = async (data: BrainData) => {
     const newPost = buildPost(data.brain.id, `I just created a new Brain: ${data.brain.title}`);
-    if (!newPost) return;
+    if (!newPost) {
+      throw new Error("Complete the required post or event details before saving the Brain.");
+    }
 
     await idb.put("brains", data.brain);
     for (const node of data.nodes) {
