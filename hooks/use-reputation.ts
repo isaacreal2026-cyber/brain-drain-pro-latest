@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Reputation, XPEvent } from "../lib/types";
 import { idb } from "../lib/db";

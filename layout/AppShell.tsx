@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   MoreHorizontal,
   X,
-  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   WifiOff

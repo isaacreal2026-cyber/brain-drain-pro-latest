@@ -137,9 +137,13 @@ export async function flushAnalyticsEvents() {
       keepalive: true,
     });
 
-    // If the backend is absent in a static preview, local IndexedDB remains the source of truth.
-    if (!response.ok && response.status !== 404) {
-      console.warn("Analytics backend rejected events", response.status);
+    // Static previews can return the SPA HTML with a 200 instead of an API response.
+    // Treat that as unavailable so analytics are not reported as successfully synced.
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || !contentType.includes("application/json")) {
+      if (response.status !== 404) {
+        console.warn("Analytics backend unavailable or rejected events", response.status);
+      }
     }
   } catch {
     // Best-effort only. Never rethrow or block the product experience.

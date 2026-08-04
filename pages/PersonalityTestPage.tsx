@@ -3,7 +3,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Brain, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Brain, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react"
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";

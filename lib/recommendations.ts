@@ -1,5 +1,5 @@
 import { AnalyticsEvent } from "./analytics";
-import { Brain, Mission, Notification as AppNotification, Post, Topic } from "./types";
+import { Brain, getPostDownvoteCount, getPostUpvoteCount, Mission, Notification as AppNotification, Post, Topic } from "./types";
 
 export type FeedMode = "foryou" | "following" | "trending";
 
@@ -29,7 +29,7 @@ function ageDecay(createdAt: number) {
 }
 
 function engagementScore(post: Post) {
-  const reactions = Object.values(post.reactions || {}).reduce((sum, count) => sum + count, 0);
+  const reactions = getPostUpvoteCount(post) + getPostDownvoteCount(post);
   return reactions + (post.commentCount || 0) * 1.5 + (post.repostCount || post.reactions?.repost || 0) * 2;
 }
 

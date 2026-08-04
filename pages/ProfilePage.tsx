@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Settings, MessageSquare, Network, Flame, Target, History, Trophy, Award, Activity, Brain, BookOpen, Compass, Star, Smile, BellOff, Calendar, Filter, Search, Grid3x3, LayoutList, AtSign, QrCode, Link as LinkIcon, ExternalLink, UserPlus, Share2 } from "lucide-react";
+import { ArrowLeft, Settings, MessageSquare, Network, Flame, Target, Trophy, Award, Activity, Brain, BookOpen, Compass, Star, Smile, BellOff, Calendar, Filter, Search, AtSign, QrCode, Link as LinkIcon, ExternalLink, UserPlus, Share2 } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { useReputation } from "@/hooks/use-reputation";
 import { useMissions } from "@/hooks/use-missions";

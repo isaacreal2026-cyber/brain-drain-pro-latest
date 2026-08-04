@@ -1,5 +1,3 @@
-import { Brain, Node } from "./types";
-
 const DB_NAME = "brainBuilder";
 const DB_VERSION = 6;
 

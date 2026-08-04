@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrainCircuit, Download, X, CheckCircle2 } from "lucide-react";
-import { Brain, Node, BrainData } from "@/lib/types";
+import { Brain, Node } from "@/lib/types";
 import { idb } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 

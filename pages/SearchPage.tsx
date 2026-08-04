@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Search as SearchIcon, Clock, X, Hash, User, Network } from "lucide-react";
-import { Link } from "wouter";
+import { Search as SearchIcon, Clock, X } from "lucide-react"
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { trackEvent } from "@/lib/analytics";
 

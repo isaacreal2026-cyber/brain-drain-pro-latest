@@ -3,7 +3,7 @@ import { Brain, Node } from "@/lib/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { idb } from "@/lib/db";
-import { Bot, User, RotateCcw, AlertTriangle, CheckCircle2, Send, X, Image as ImageIcon, FileCode2, FileText } from "lucide-react";
+import { Bot, RotateCcw, AlertTriangle, CheckCircle2, X, FileCode2, FileText } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 

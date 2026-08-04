@@ -1,13 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { UserProfile } from '@/lib/types';
-import { AppUser, isGuestUser } from '@/lib/user-data';
-import { idb } from '@/lib/db';
-import { Button } from '@/components/ui/button';
-import { BrainCircuit, UserRound } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { UserProfile } from "@/lib/types";
+import { AppUser, isGuestUser } from "@/lib/user-data";
+import { idb } from "@/lib/db";
+import { Button } from "@/components/ui/button";
+import { BrainCircuit, UserRound } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   user: AppUser | null;
@@ -21,18 +18,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-const GUEST_STORAGE_KEY = 'brain-builder-guest';
-const GUEST_PROFILE_ID = 'guest-profile';
+const GUEST_STORAGE_KEY = "brain-builder-guest";
+const GUEST_PROFILE_ID = "guest-profile";
 
 function makeGuestProfile(uid: string): UserProfile {
   return {
     id: uid,
     username: `guest_${uid.substring(6, 11)}`,
-    displayName: 'Guest Builder',
-    bio: 'Exploring the limits of logic graphs and social knowledge.',
+    displayName: "Guest Builder",
+    bio: "Exploring the limits of logic graphs and social knowledge.",
     followerCount: 0,
     followingCount: 0,
   };
+}
+
+function loadFirebaseServices() {
+  return Promise.all([
+    import("@/lib/firebase-auth"),
+    import("firebase/auth"),
+  ]).then(([firebase, authApi]) => ({
+    auth: firebase.auth,
+    onAuthStateChanged: authApi.onAuthStateChanged,
+    signInWithPopup: authApi.signInWithPopup,
+    GoogleAuthProvider: authApi.GoogleAuthProvider,
+    signOut: authApi.signOut,
+  }));
+}
+
+let firebaseServicesPromise: ReturnType<typeof loadFirebaseServices> | null = null;
+let firestoreServicesPromise: ReturnType<typeof loadFirestoreServices> | null = null;
+
+function getFirebaseServices() {
+  if (!firebaseServicesPromise) firebaseServicesPromise = loadFirebaseServices();
+  return firebaseServicesPromise;
+}
+
+function loadFirestoreServices() {
+  return Promise.all([
+    import("@/lib/firebase-firestore"),
+    import("firebase/firestore"),
+  ]).then(([firebase, firestoreApi]) => ({
+    db: firebase.db,
+    doc: firestoreApi.doc,
+    getDoc: firestoreApi.getDoc,
+    setDoc: firestoreApi.setDoc,
+  }));
+}
+
+function getFirestoreServices() {
+  if (!firestoreServicesPromise) firestoreServicesPromise = loadFirestoreServices();
+  return firestoreServicesPromise;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -43,88 +78,134 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Restore an existing guest session immediately (works fully offline).
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
     const guestId = localStorage.getItem(GUEST_STORAGE_KEY);
+    let guestSessionActive = Boolean(guestId);
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        const appUser: AppUser = {
-          uid: currentUser.uid,
-          displayName: currentUser.displayName,
-          email: currentUser.email,
-          photoURL: currentUser.photoURL,
-        };
-        setUser(appUser);
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
+    const restoreGuestSession = async (uid: string) => {
+      const guestUser: AppUser = { uid, displayName: "Guest Builder", email: null, photoURL: null };
+      let guestProfile = makeGuestProfile(uid);
+      try {
+        const localProfile = await idb.get<UserProfile>("profile", GUEST_PROFILE_ID);
+        guestProfile = localProfile || guestProfile;
+      } catch {
+        // Local profile storage is best-effort.
+      }
+      if (!isMounted || !guestSessionActive) return;
+      setUser(guestUser);
+      setProfile(guestProfile);
+      setLoading(false);
+    };
 
-          if (userDoc.exists()) {
-            setProfile(userDoc.data() as UserProfile);
-          } else {
-            const newProfile: UserProfile = {
-              id: currentUser.uid,
-              username: currentUser.email?.split('@')[0] || `user_${currentUser.uid.substring(0, 5)}`,
-              displayName: currentUser.displayName || 'New Builder',
-              bio: 'Exploring the limits of logic graphs and social knowledge.',
-              avatarUrl: currentUser.photoURL || undefined,
-              followerCount: 0,
-              followingCount: 0,
-            };
-            await setDoc(userDocRef, newProfile);
-            setProfile(newProfile);
-          }
-        } catch (error: any) {
-          console.error('Error fetching/creating profile:', error);
-          // Do not block the app on profile fetch failure — fall back to a local profile.
-          setProfile({
-            id: currentUser.uid,
-            username: currentUser.email?.split('@')[0] || 'builder',
-            displayName: currentUser.displayName || 'Builder',
-            bio: '',
-            avatarUrl: currentUser.photoURL || undefined,
-            followerCount: 0,
-            followingCount: 0,
-          });
-          toast({ title: 'Profile Sync Issue', description: 'Working with a local profile. Changes will sync when possible.' });
-        }
-        setLoading(false);
-      } else if (guestId) {
-        // No Firebase user, but there is a saved guest session.
-        const guestUser: AppUser = { uid: guestId, displayName: 'Guest Builder', email: null, photoURL: null };
-        setUser(guestUser);
-        try {
-          const localProfile = await idb.get<UserProfile>('profile', GUEST_PROFILE_ID);
-          setProfile(localProfile || makeGuestProfile(guestId));
-        } catch {
-          setProfile(makeGuestProfile(guestId));
-        }
-        setLoading(false);
-      } else {
+    const handleAuthFailure = (error: unknown) => {
+      console.error("Firebase auth initialization failed:", error);
+      if (guestId) {
+        guestSessionActive = true;
+        void restoreGuestSession(guestId);
+      } else if (isMounted) {
         setUser(null);
         setProfile(null);
         setLoading(false);
       }
-    });
+      toast({
+        title: "Authentication unavailable",
+        description: "You can continue as a guest while sign-in reconnects.",
+      });
+    };
 
-    return () => unsubscribe();
-  }, []);
+    const initializeAuth = async () => {
+      try {
+        const services = await getFirebaseServices();
+        if (!isMounted) return;
+
+        unsubscribe = services.onAuthStateChanged(
+          services.auth,
+          async (currentUser) => {
+            if (!isMounted) return;
+
+            if (currentUser) {
+              guestSessionActive = false;
+              const appUser: AppUser = {
+                uid: currentUser.uid,
+                displayName: currentUser.displayName,
+                email: currentUser.email,
+                photoURL: currentUser.photoURL,
+              };
+              setUser(appUser);
+
+              try {
+                const firestore = await getFirestoreServices();
+                const userDocRef = firestore.doc(firestore.db, "users", currentUser.uid);
+                const userDoc = await firestore.getDoc(userDocRef);
+                if (userDoc.exists()) {
+                  setProfile(userDoc.data() as UserProfile);
+                } else {
+                  const newProfile: UserProfile = {
+                    id: currentUser.uid,
+                    username: currentUser.email?.split("@")[0] || `user_${currentUser.uid.substring(0, 5)}`,
+                    displayName: currentUser.displayName || "New Builder",
+                    bio: "Exploring the limits of logic graphs and social knowledge.",
+                    avatarUrl: currentUser.photoURL || undefined,
+                    followerCount: 0,
+                    followingCount: 0,
+                  };
+                  await firestore.setDoc(userDocRef, newProfile);
+                  setProfile(newProfile);
+                }
+              } catch (error: unknown) {
+                console.error("Error fetching/creating profile:", error);
+                setProfile({
+                  id: currentUser.uid,
+                  username: currentUser.email?.split("@")[0] || "builder",
+                  displayName: currentUser.displayName || "Builder",
+                  bio: "",
+                  avatarUrl: currentUser.photoURL || undefined,
+                  followerCount: 0,
+                  followingCount: 0,
+                });
+                toast({ title: "Profile Sync Issue", description: "Working with a local profile. Changes will sync when possible." });
+              }
+              if (isMounted) setLoading(false);
+            } else if (guestId) {
+              guestSessionActive = true;
+              await restoreGuestSession(guestId);
+            } else {
+              setUser(null);
+              setProfile(null);
+              setLoading(false);
+            }
+          },
+          handleAuthFailure,
+        );
+      } catch (error: unknown) {
+        handleAuthFailure(error);
+      }
+    };
+
+    if (guestId) void restoreGuestSession(guestId);
+    void initializeAuth();
+    return () => {
+      isMounted = false;
+      unsubscribe?.();
+    };
+  }, [toast]);
 
   const signIn = async () => {
     setSigningIn(true);
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const services = await getFirebaseServices();
+      await services.signInWithPopup(services.auth, new services.GoogleAuthProvider());
       localStorage.removeItem(GUEST_STORAGE_KEY);
     } catch (error: any) {
-      console.error('Error signing in', error);
-      const blocked = error?.code === 'auth/popup-blocked' || error?.code === 'auth/cancelled-popup-request' || error?.code === 'auth/popup-closed-by-user';
+      console.error("Error signing in", error);
+      const blocked = error?.code === "auth/popup-blocked" || error?.code === "auth/cancelled-popup-request" || error?.code === "auth/popup-closed-by-user";
       toast({
-        title: 'Sign-in Failed',
+        title: "Sign-in Failed",
         description: blocked
-          ? 'The sign-in popup was blocked or closed. You can continue as a guest instead.'
-          : error.message || 'Could not sign in. You can continue as a guest instead.',
-        variant: 'destructive',
+          ? "The sign-in popup was blocked or closed. You can continue as a guest instead."
+          : error.message || "Could not sign in. You can continue as a guest instead.",
+        variant: "destructive",
       });
     } finally {
       setSigningIn(false);
@@ -134,12 +215,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const continueAsGuest = async () => {
     const guestId = `guest-${crypto.randomUUID().substring(0, 8)}`;
     localStorage.setItem(GUEST_STORAGE_KEY, guestId);
-    const guestUser: AppUser = { uid: guestId, displayName: 'Guest Builder', email: null, photoURL: null };
+    const guestUser: AppUser = { uid: guestId, displayName: "Guest Builder", email: null, photoURL: null };
     const guestProfile = makeGuestProfile(guestId);
     try {
-      await idb.put('profile', { ...guestProfile, id: GUEST_PROFILE_ID });
-    } catch (e) {
-      console.error('Failed to persist guest profile', e);
+      await idb.put("profile", { ...guestProfile, id: GUEST_PROFILE_ID });
+    } catch (error: unknown) {
+      console.error("Failed to persist guest profile", error);
     }
     setUser(guestUser);
     setProfile(guestProfile);
@@ -153,10 +234,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         return;
       }
-      await signOut(auth);
+      const services = await getFirebaseServices();
+      await services.signOut(services.auth);
     } catch (error: any) {
-      console.error('Error signing out', error);
-      toast({ title: 'Sign-out Failed', description: error.message || 'Could not sign out.', variant: 'destructive' });
+      console.error("Error signing out", error);
+      toast({ title: "Sign-out Failed", description: error.message || "Could not sign out.", variant: "destructive" });
     }
   };
 
@@ -165,14 +247,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const updatedProfile = { ...profile, ...data };
     try {
       if (isGuestUser(user)) {
-        await idb.put('profile', { ...updatedProfile, id: GUEST_PROFILE_ID });
+        await idb.put("profile", { ...updatedProfile, id: GUEST_PROFILE_ID });
       } else {
-        await setDoc(doc(db, 'users', user.uid), updatedProfile, { merge: true });
+        const firestore = await getFirestoreServices();
+        await firestore.setDoc(firestore.doc(firestore.db, "users", user.uid), updatedProfile, { merge: true });
       }
       setProfile(updatedProfile);
     } catch (error: any) {
-      console.error('Error updating profile', error);
-      toast({ title: 'Update Failed', description: error.message || 'Could not update profile.', variant: 'destructive' });
+      console.error("Error updating profile", error);
+      toast({ title: "Update Failed", description: error.message || "Could not update profile.", variant: "destructive" });
     }
   };
 
@@ -198,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           <p className="text-muted-foreground mb-8">Sign in to start creating logic modules, managing missions, and joining the community.</p>
           <div className="space-y-3">
             <Button onClick={signIn} disabled={signingIn} className="w-full py-6 text-lg rounded-xl">
-              {signingIn ? 'Signing in...' : 'Sign in with Google'}
+              {signingIn ? "Signing in..." : "Sign in with Google"}
             </Button>
             <Button onClick={continueAsGuest} variant="outline" className="w-full py-6 text-lg rounded-xl gap-2">
               <UserRound className="w-5 h-5" />

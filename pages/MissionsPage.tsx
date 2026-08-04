@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMissions } from "@/hooks/use-missions";
 import { useReputation } from "@/hooks/use-reputation";
-import { Mission, Milestone, MissionCategory } from "@/lib/types";
+import { MissionCategory } from "@/lib/types";
 import { format } from "date-fns";
 import {
-  Rocket, Plus, Calendar, Target, CheckCircle2, ChevronRight, X, Edit, Trash, PlusCircle, Check, ArrowLeft, Sparkles, BrainCircuit, MessageSquare, Star, Award, ThumbsUp
+  Rocket, Plus, Calendar, Target, CheckCircle2, X, Edit, Trash, PlusCircle, ArrowLeft, Sparkles, BrainCircuit, MessageSquare, Star, Award, ThumbsUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";

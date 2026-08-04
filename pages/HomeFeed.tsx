@@ -3,19 +3,21 @@ import { useSocial } from "@/hooks/use-social";
 import { useTopics } from "@/hooks/use-topics";
 import { PostCard } from "@/components/feed/PostCard";
 import { PostSkeleton } from "@/components/feed/PostSkeleton";
-import { PostCreator } from "@/components/feed/PostCreator";
 import { FloatingCreateButton } from "@/components/ui/CreateExperienceModal";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, PenSquare } from "lucide-react";
-import { Post, Topic } from "@/lib/types";
+import { CircleHelp, MessageSquare, PenSquare } from "lucide-react";
+import { Post, PostType, Topic } from "@/lib/types";
+import { useCommunities } from "@/hooks/use-communities";
 import { MomentumWidget } from "@/components/momentum/MomentumWidget";
 import { useLocation } from "wouter";
 import { trackEvent } from "@/lib/analytics";
 import { FeedMode, rankHomeFeedPosts, rankRelatedTopics } from "@/lib/recommendations";
 import { useAnalyticsEvents } from "@/hooks/use-recommendations";
+import { useToast } from "@/hooks/use-toast";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
+const PostCreator = lazy(() => import("@/components/feed/PostCreator").then((module) => ({ default: module.PostCreator })));
 
 // Helper to seed data if empty
 const SEED_TOPICS: Topic[] = [
@@ -31,7 +33,7 @@ const SEED_POSTS: Post[] = [
     topicId: "t3",
     content: "Just finalized my mental model for React suspense transitions. The key is understanding that the render phase can be interrupted safely. Created a small brain to test your knowledge on it.",
     commentCount: 42,
-    reactions: { love: 12, like: 104 },
+    reactions: { upvote: 104, downvote: 2 },
     createdAt: Date.now() - 3600000,
     brainId: "dummy-brain-1"
   },
@@ -41,7 +43,7 @@ const SEED_POSTS: Post[] = [
     topicId: "t1",
     content: "Why do we keep rebuilding the same wheels? A thread on system architecture and standardizing our modules.",
     commentCount: 12,
-    reactions: { like: 45 },
+    reactions: { upvote: 45, downvote: 1 },
     createdAt: Date.now() - 86400000,
   },
   {
@@ -51,7 +53,7 @@ const SEED_POSTS: Post[] = [
     content: "If a machine encodes human knowledge, does it possess a fraction of our consciousness?",
     mediaUrls: ["https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1000&auto=format&fit=crop"],
     commentCount: 89,
-    reactions: { love: 200, like: 10 },
+    reactions: { upvote: 200, downvote: 4 },
     createdAt: Date.now() - 172800000,
   }
 ];
@@ -59,8 +61,10 @@ const SEED_POSTS: Post[] = [
 export function HomeFeed() {
   const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial();
   const { topics, addTopic, refreshTopics } = useTopics();
+  const { communities } = useCommunities();
   const { data: analyticsEvents = [] } = useAnalyticsEvents();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   const graphData = useMemo(() => {
     const nodes = topics.map(t => ({ id: t.id, name: t.name }));
@@ -90,21 +94,36 @@ export function HomeFeed() {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [activeFeed, setActiveFeed] = useState<FeedMode>("foryou");
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [creatorPostType, setCreatorPostType] = useState<PostType>("post");
   const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
     const seedData = async () => {
-      if (!isLoading && posts.length === 0 && topics.length === 0 && !isSeeding) {
-        setIsSeeding(true);
-        for (const t of SEED_TOPICS) await addTopic(t);
-        for (const p of SEED_POSTS) await addPost(p);
+      if (isLoading || isSeeding || (posts.length > 0 && topics.length > 0)) return;
+
+      setIsSeeding(true);
+      try {
+        if (topics.length === 0) {
+          for (const topic of SEED_TOPICS) await addTopic(topic);
+        }
+        if (posts.length === 0) {
+          for (const post of SEED_POSTS) await addPost(post);
+        }
         await refreshTopics();
         await refreshPosts();
+      } catch (error) {
+        console.error("Failed to seed the home feed", error);
+        toast({
+          title: "Feed setup failed",
+          description: "We could not load starter content. Please refresh and try again.",
+          variant: "destructive",
+        });
+      } finally {
         setIsSeeding(false);
       }
     };
-    seedData();
-  }, [posts.length, topics.length, isLoading]);
+    void seedData();
+  }, [posts.length, topics.length, isLoading, isSeeding, toast]);
 
   const [displayLimit, setDisplayLimit] = useState(5);
   const [observerRef, setObserverRef] = useState<HTMLDivElement | null>(null);
@@ -130,6 +149,8 @@ export function HomeFeed() {
   );
 
   useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
         setDisplayLimit((prev) => prev + 5);
@@ -146,6 +167,11 @@ export function HomeFeed() {
       }
     };
   }, [observerRef]);
+
+  const openCreator = (postType: PostType = "post") => {
+    setCreatorPostType(postType);
+    setIsCreatorOpen(true);
+  };
 
   const handleCreatePost = async (post: Post) => {
     await addPost(post);
@@ -194,9 +220,9 @@ export function HomeFeed() {
       </div>
 
       <div className="p-4 border-b border-border/50">
-        <div 
+        <div
           className="flex items-center gap-4 bg-muted/30 p-3 rounded-2xl cursor-text hover:bg-muted/50 transition-colors border border-border/50"
-          onClick={() => setIsCreatorOpen(true)}
+          onClick={() => openCreator("post")}
         >
           <div className="w-10 h-10 rounded-full bg-primary/20 flex flex-shrink-0 items-center justify-center text-primary font-bold text-sm">
             ME
@@ -204,7 +230,35 @@ export function HomeFeed() {
           <div className="flex-1 text-muted-foreground">
             Share your knowledge...
           </div>
-          <Button size="sm" className="rounded-full px-4 font-semibold">Post</Button>
+          <Button size="sm" className="rounded-full px-4 font-semibold" onClick={(event) => { event.stopPropagation(); openCreator("post"); }}>
+            Post
+          </Button>
+        </div>
+        <div className="flex items-center justify-between gap-1 sm:gap-2 mt-3 px-1">
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("question")}
+          >
+            <CircleHelp className="w-4 h-4" />
+            <span>Ask</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("answer")}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Answer</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 gap-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={() => openCreator("post")}
+          >
+            <PenSquare className="w-4 h-4" />
+            <span>Post</span>
+          </Button>
         </div>
       </div>
 
@@ -281,14 +335,20 @@ export function HomeFeed() {
         </>
       )}
 
-      <FloatingCreateButton onCreatePost={() => setIsCreatorOpen(true)} />
+      <FloatingCreateButton onCreatePost={() => openCreator("post")} />
 
-      <PostCreator 
-        isOpen={isCreatorOpen} 
-        onClose={() => setIsCreatorOpen(false)} 
-        onPostCreated={handleCreatePost}
-        topics={topics}
-      />
+      {isCreatorOpen && (
+        <Suspense fallback={null}>
+          <PostCreator
+            isOpen={isCreatorOpen}
+            onClose={() => setIsCreatorOpen(false)}
+            onPostCreated={handleCreatePost}
+            topics={topics}
+            communities={communities}
+            postType={creatorPostType}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { Database, Network, Clock, Files, Library, GitBranch, Map as MapIcon, Ha
 
 export function LibraryPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedBrain, setSelectedBrain] = useState<Brain | null>(null);
+  const [selectedBrain] = useState<Brain | null>(null);
 
   // The Dashboard component already has its own layout, so when rendering it
   // inside the "My Brain" tab, it will take up the full space.

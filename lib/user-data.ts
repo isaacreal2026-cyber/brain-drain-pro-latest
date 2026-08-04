@@ -1,5 +1,3 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { idb } from "@/lib/db";
 
 // A minimal user shape shared by real Firebase users and local guest users.
@@ -21,6 +19,25 @@ export interface PersonalityTestData {
 
 const PT_SETTINGS_ID = "personality-test";
 
+function loadFirestoreServices() {
+  return Promise.all([
+    import("@/lib/firebase-firestore"),
+    import("firebase/firestore"),
+  ]).then(([firebase, firestore]) => ({
+    db: firebase.db,
+    doc: firestore.doc,
+    getDoc: firestore.getDoc,
+    setDoc: firestore.setDoc,
+  }));
+}
+
+let firestoreServicesPromise: ReturnType<typeof loadFirestoreServices> | null = null;
+
+function getFirestoreServices() {
+  if (!firestoreServicesPromise) firestoreServicesPromise = loadFirestoreServices();
+  return firestoreServicesPromise;
+}
+
 /**
  * Loads personality test progress. Guests read from local IndexedDB,
  * signed-in users read from Firestore.
@@ -30,7 +47,9 @@ export async function loadPersonalityTest(user: AppUser): Promise<PersonalityTes
     const local = await idb.get<PersonalityTestData & { id: string }>("settings", PT_SETTINGS_ID);
     return local || null;
   }
-  const snap = await getDoc(doc(db, "personality_tests", user.uid));
+
+  const services = await getFirestoreServices();
+  const snap = await services.getDoc(services.doc(services.db, "personality_tests", user.uid));
   return snap.exists() ? (snap.data() as PersonalityTestData) : null;
 }
 
@@ -43,5 +62,7 @@ export async function savePersonalityTest(user: AppUser, data: PersonalityTestDa
     await idb.put("settings", { ...data, id: PT_SETTINGS_ID });
     return;
   }
-  await setDoc(doc(db, "personality_tests", user.uid), data, { merge: true });
+
+  const services = await getFirestoreServices();
+  await services.setDoc(services.doc(services.db, "personality_tests", user.uid), data, { merge: true });
 }

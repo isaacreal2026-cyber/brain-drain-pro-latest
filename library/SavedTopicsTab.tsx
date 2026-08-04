@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Hash, GripVertical, Users, Star, ArrowRight, BookOpen } from "lucide-react";
-import { Reorder, motion } from "framer-motion";
+import { Reorder } from "framer-motion";
 import { Topic } from "@/lib/types";
 
 export function SavedTopicsTab() {

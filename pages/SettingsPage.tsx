@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
-import { User, Bell, Shield, Paintbrush, Database, Accessibility, Check, Lock, ChevronRight, Monitor, Moon, Sun, LogOut } from "lucide-react";
+import { User, Shield, Paintbrush, Database, Check, ChevronRight, Monitor, Moon, Sun, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -105,14 +105,6 @@ export function SettingsPage() {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  };
-
-  const handleToggle = (name: string, value: boolean, setter: (val: boolean) => void) => {
-    setter(value);
-    toast({
-      title: "Settings Updated",
-      description: `${name} has been turned ${value ? 'on' : 'off'}.`,
-    });
   };
 
   const handleExportAccountData = async () => {

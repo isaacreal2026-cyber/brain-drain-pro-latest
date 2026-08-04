@@ -2,6 +2,10 @@ packages:
   - "."
   - "api-server"
   - "mockup-sandbox"
+overrides:
+  postcss: 8.5.23
+  protobufjs: 7.6.5
+
 allowBuilds:
   '@firebase/util': true
   esbuild: true
