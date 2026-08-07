@@ -64,8 +64,8 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
     <div className="max-w-3xl mx-auto border-x min-h-screen bg-card/30">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b p-4 flex items-center gap-4">
-        <Link href="/topics">
-          <Button variant="outline" size="sm" className="gap-2 rounded-full border-border/60 hover:bg-accent/50 text-muted-foreground hover:text-foreground cursor-pointer">
+        <Link href="/topics" aria-label="Back to topics">
+          <Button variant="outline" size="sm" className="gap-2 rounded-full border-border/60 hover:bg-accent/50 text-muted-foreground hover:text-foreground cursor-pointer" tabIndex={-1} aria-hidden="true">
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Topics</span>
           </Button>
@@ -86,7 +86,7 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
           <span className="flex items-center gap-1"><Users className="w-4 h-4" /> {topic.followerCount} followers</span>
         </div>
         <div className="mt-6 flex gap-2">
-          <Button variant={topic.isFollowed ? "secondary" : "default"} className="w-full sm:w-auto px-8" onClick={handleToggleFollow}>
+          <Button variant={topic.isFollowed ? "secondary" : "default"} aria-pressed={topic.isFollowed} className="w-full sm:w-auto px-8" onClick={handleToggleFollow}>
             {topic.isFollowed ? "Following" : "Follow"}
           </Button>
           <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleAction("Start a Discussion")}>Start a Discussion</Button>

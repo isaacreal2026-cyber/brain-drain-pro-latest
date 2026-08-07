@@ -1,73 +1,43 @@
-import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
+/**
+ * A lightweight top-of-page route transition indicator. Uses a CSS keyframe
+ * animation instead of framer-motion so it can stay on the critical path
+ * without pulling in a 130kB animation library.
+ */
 export function ConnectionLoader() {
   const [location] = useLocation();
-  const [phase, setPhase] = useState<"idle" | "meeting" | "filling" | "complete">("idle");
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Start animation on route change
-    setPhase("meeting");
-
-    const meetTimer = setTimeout(() => {
-      setPhase("filling");
-    }, 1200); // Time it takes to meet in the middle
-
-    const completeTimer = setTimeout(() => {
-      setPhase("complete");
-    }, 2000); // Time it takes to fill the space
-
-    const hideTimer = setTimeout(() => {
-      setPhase("idle");
-    }, 2400); // Time before hiding completely
-
-    return () => {
-      clearTimeout(meetTimer);
-      clearTimeout(completeTimer);
-      clearTimeout(hideTimer);
-    };
+    setVisible(true);
+    const timer = setTimeout(() => setVisible(false), 900);
+    return () => clearTimeout(timer);
   }, [location]);
 
-  if (phase === "idle") return null;
+  if (!visible) return null;
 
   return (
-    <div className="fixed top-0 left-0 w-full h-[3px] z-[100] flex justify-center items-center overflow-hidden bg-transparent">
-      <AnimatePresence>
-        {phase !== "complete" && (
-          <>
-            {/* Left moving line */}
-            <motion.div
-              className="absolute h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.8)]"
-              initial={{ left: "0%", width: "0%", x: "-100%" }}
-              animate={
-                phase === "meeting"
-                  ? { left: "50%", width: "20%", x: "-100%" }
-                  : { left: "50%", width: "50%", x: "-100%" }
-              }
-              transition={{
-                duration: phase === "meeting" ? 1.2 : 0.8,
-                ease: phase === "meeting" ? "circIn" : "circOut",
-              }}
-            />
-
-            {/* Right moving line */}
-            <motion.div
-              className="absolute h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.8)]"
-              initial={{ right: "0%", width: "0%", x: "100%" }}
-              animate={
-                phase === "meeting"
-                  ? { right: "50%", width: "20%", x: "100%" }
-                  : { right: "50%", width: "50%", x: "100%" }
-              }
-              transition={{
-                duration: phase === "meeting" ? 1.2 : 0.8,
-                ease: phase === "meeting" ? "circIn" : "circOut",
-              }}
-            />
-          </>
-        )}
-      </AnimatePresence>
+    <div
+      className="fixed top-0 left-0 w-full h-[3px] z-[100] overflow-hidden bg-transparent pointer-events-none"
+      aria-hidden
+    >
+      <div
+        className="h-full w-1/3 bg-primary shadow-[0_0_10px_hsl(var(--primary))]"
+        style={{ animation: "bd-loader 0.9s ease-out forwards" }}
+      />
+      <style>{`
+        @keyframes bd-loader {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes bd-loader {
+            0%, 100% { transform: translateX(0); opacity: 0.6; }
+          }
+        }
+      `}</style>
     </div>
   );
 }

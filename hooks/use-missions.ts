@@ -51,8 +51,8 @@ export function useMissions() {
         ];
 
         await Promise.all([
-          ...seedMissions.map(m => idb.put("missions", m)),
-          ...seedMilestones.map(m => idb.put("milestones", m))
+          idb.putAll("missions", seedMissions),
+          idb.putAll("milestones", seedMilestones),
         ]);
 
         return { missions: seedMissions, milestones: seedMilestones };
@@ -142,6 +142,17 @@ export function useMissions() {
     }
   });
 
+  const updateMilestoneMutation = useMutation({
+    mutationFn: async ({ id, changes }: { id: string; changes: Partial<Milestone> }) => {
+      const milestone = await idb.get<Milestone>("milestones", id);
+      if (!milestone) return;
+      await idb.put("milestones", { ...milestone, ...changes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["missionsData"] });
+    },
+  });
+
   const completeMissionMutation = useMutation({
     mutationFn: async (id: string) => {
       const mission = await idb.get<Mission>("missions", id);
@@ -169,6 +180,7 @@ export function useMissions() {
     updateMission: (id: string, changes: Partial<Mission>) => updateMissionMutation.mutateAsync({ id, changes }),
     completeMission: completeMissionMutation.mutateAsync,
     toggleMilestone: toggleMilestoneMutation.mutateAsync,
+    updateMilestone: (id: string, changes: Partial<Milestone>) => updateMilestoneMutation.mutateAsync({ id, changes }),
     refresh: () => queryClient.invalidateQueries({ queryKey: ["missionsData"] })
   };
 }

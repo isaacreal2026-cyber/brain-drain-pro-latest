@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Brain, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react"
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { loadPersonalityTest, savePersonalityTest } from "@/lib/user-data";
 
 interface Question {
   id: string;
@@ -33,36 +32,38 @@ export function PersonalityTestPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchProgress = async () => {
       if (user) {
         try {
-          const docRef = doc(db, "personality_tests", user.uid);
-          const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            const data = snap.data();
+          const data = await loadPersonalityTest(user);
+          if (!cancelled && data) {
             setAnswers(data.answers || {});
             if (data.isCompleted) setIsCompleted(true);
             else setCurrentStep(Object.keys(data.answers || {}).length);
           }
-        } catch (e: any) {
+        } catch (e) {
           console.error(e);
           toast({ title: "Error", description: "Failed to load test progress.", variant: "destructive" });
         }
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
-    fetchProgress();
-  }, [user]);
+    void fetchProgress();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, toast]);
 
   const saveProgress = async (newAnswers: Record<string, number>, completed = false) => {
     if (!user) return;
     try {
-      await setDoc(doc(db, "personality_tests", user.uid), {
+      await savePersonalityTest(user, {
         answers: newAnswers,
         isCompleted: completed,
-        updatedAt: Date.now()
-      }, { merge: true });
-    } catch (e: any) {
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "Failed to save test progress.", variant: "destructive" });
     }

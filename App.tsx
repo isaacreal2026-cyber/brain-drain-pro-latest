@@ -15,11 +15,26 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { idb } from "@/lib/db";
 import { Post, Topic, Brain } from "@/lib/types";
+import NotFound from "@/pages/not-found";
+import { env } from "@/lib/env";
+import { reportError } from "@/lib/error-monitor";
 
-// Eager load critical routes
-import { HomeFeed } from "@/pages/HomeFeed";
+const QUERY_RETRY_ATTEMPTS = 1;
 
-// Lazy load other pages
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes
+      refetchOnWindowFocus: false,
+      retry: QUERY_RETRY_ATTEMPTS,
+    },
+  },
+});
+
+// All routes are code-split so heavy vendor chunks (firebase, d3, charts,
+// framer-motion) only load when the user visits the screen that needs them.
+const HomeFeed = lazy(() => import("@/pages/HomeFeed").then(module => ({ default: module.HomeFeed })));
 const LibraryPage = lazy(() => import("@/pages/LibraryPage").then(module => ({ default: module.LibraryPage })));
 const TopicsPage = lazy(() => import("@/pages/TopicsPage").then(module => ({ default: module.TopicsPage })));
 const TopicDetailPage = lazy(() => import("@/pages/TopicDetailPage").then(module => ({ default: module.TopicDetailPage })));
@@ -31,17 +46,6 @@ const PersonalityTestPage = lazy(() => import("@/pages/PersonalityTestPage").the
 const MessagesPage = lazy(() => import("@/pages/MessagesPage").then(module => ({ default: module.MessagesPage })));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage").then(module => ({ default: module.NotificationsPage })));
 const CommunityPage = lazy(() => import("@/pages/CommunityPage").then(module => ({ default: module.CommunityPage })));
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 30, // 30 minutes
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
 
 function PageLoader() {
   return (
@@ -110,9 +114,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Route Error caught by boundary:", error, errorInfo);
+    // Surface to the global monitor so production issues are reported.
+    reportError({
+      message: error.message || "Route render error",
+      name: error.name,
+      stack: error.stack,
+      at: Date.now(),
+    });
     this.props.toast({
-      title: "Route Execution Failure",
-      description: error.message || "An unexpected error occurred while loading this page.",
+      title: "Something went wrong",
+      description: "This page hit an unexpected error. You can return home and try again.",
       variant: "destructive",
     });
   }
@@ -144,11 +155,11 @@ function RouteErrorFallback({ onReset, error }: { onReset: () => void; error: Er
       <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
         <AlertTriangle className="h-8 w-8 text-destructive animate-pulse" />
       </div>
-      <h2 className="text-2xl font-bold tracking-tight mb-2">Navigation Interrupt</h2>
+      <h2 className="text-2xl font-bold tracking-tight mb-2">Something went wrong</h2>
       <p className="text-muted-foreground mb-4 max-w-md">
-        An execution mismatch or network delay disrupted system loading.
+        An unexpected error interrupted this page. You can return home and try again.
       </p>
-      {error && (
+      {error && !env.isProd && (
         <div className="bg-muted border border-border/50 rounded-lg p-3 max-w-lg mb-6 text-xs font-mono text-left overflow-auto max-h-32 w-full text-destructive-foreground dark:text-destructive">
           {error.stack || error.message}
         </div>
@@ -192,7 +203,7 @@ function Router() {
             <Route path="/topics" component={TopicsPage} />
             <Route path="/topics/:id" component={TopicDetailPage} />
             <Route path="/settings" component={SettingsPage} />
-            <Route component={HomeFeed} />
+            <Route component={NotFound} />
           </Switch>
         </RouteErrorBoundary>
       </Suspense>

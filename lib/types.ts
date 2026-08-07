@@ -170,6 +170,7 @@ export interface Milestone {
   completed: boolean;
   completedAt?: number;
   order: number;
+  notes?: string;
 }
 
 export interface Course {

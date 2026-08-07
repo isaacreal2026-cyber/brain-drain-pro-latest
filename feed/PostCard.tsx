@@ -301,7 +301,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
               <Button
                 variant="ghost"
                 size="sm"
-                aria-label="Upvote"
+                aria-label="Upvote" aria-pressed={isUpvoted}
                 className={`gap-1.5 h-8 px-2 sm:px-3 rounded-full transition-all duration-200 cursor-pointer ${isUpvoted ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
                 onClick={() => onReact(post.id, "upvote")}
               >
@@ -314,7 +314,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
               <Button
                 variant="ghost"
                 size="sm"
-                aria-label="Downvote"
+                aria-label="Downvote" aria-pressed={isDownvoted}
                 className={`gap-1.5 h-8 px-2 sm:px-3 rounded-full transition-all duration-200 cursor-pointer ${isDownvoted ? "text-destructive bg-destructive/10" : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"}`}
                 onClick={() => onReact(post.id, "downvote")}
               >
@@ -324,51 +324,59 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                 <span className="text-xs font-semibold">{getPostDownvoteCount(post)}</span>
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`${post.commentCount || 0} comments`}
+                aria-expanded={isCommentsOpen}
                 className={`gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer ${isCommentsOpen ? 'text-cyan-500 bg-cyan-500/10' : 'text-muted-foreground hover:text-cyan-500 hover:bg-cyan-500/10'}`}
                 onClick={() => setIsCommentsOpen(!isCommentsOpen)}
               >
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle className="w-4 h-4" aria-hidden />
                 <span className="text-xs font-semibold">{post.commentCount || 0}</span>
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={isBookmarked ? "Remove bookmark" : "Save post"}
+                aria-pressed={isBookmarked}
                 className={`gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer ${isBookmarked ? 'text-yellow-500 bg-yellow-500/10' : 'text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10'}`}
                 onClick={handleToggleBookmark}
               >
-                <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current text-yellow-500' : ''}`} />
+                <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-current text-yellow-500' : ''}`} aria-hidden />
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10" 
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={`Repost · ${post.repostCount || post.reactions?.repost || 0}`}
+                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
                 onClick={() => onReact(post.id, "repost")}
               >
-                <Repeat className="w-4 h-4" />
+                <Repeat className="w-4 h-4" aria-hidden />
                 <span className="text-xs font-semibold">{post.repostCount || post.reactions?.repost || 0}</span>
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10 sm:ml-auto" 
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Share post"
+                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10 sm:ml-auto"
                 onClick={handleSharePost}
               >
-                <Share className="w-4 h-4" />
+                <Share className="w-4 h-4" aria-hidden />
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10" 
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="More sharing options"
+                aria-haspopup="menu"
+                className="gap-1.5 h-8 px-3 rounded-full transition-all duration-200 cursor-pointer text-muted-foreground hover:text-sky-500 hover:bg-sky-500/10"
                 onClick={() => setIsShareModalOpen(true)}
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <MoreHorizontal className="w-4 h-4" aria-hidden />
               </Button>
             </div>
             

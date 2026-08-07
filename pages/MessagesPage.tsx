@@ -127,6 +127,7 @@ export function MessagesPage() {
                 <button
                   key={conv.id}
                   onClick={() => setActiveId(conv.id)}
+                  aria-current={activeId === conv.id ? "true" : undefined}
                   className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors hover:bg-accent/50 ${
                     activeId === conv.id ? "bg-accent" : ""
                   }`}

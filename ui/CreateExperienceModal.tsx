@@ -35,8 +35,8 @@ export function CreateExperienceModal({ isOpen, onClose, onCreatePost }: CreateE
         <div className="p-6 pb-8 bg-gradient-to-br from-card to-accent/20">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold tracking-tight">Start Creating</h2>
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={onClose}>
-              <X className="w-5 h-5" />
+            <Button variant="ghost" size="icon" className="rounded-full" onClick={onClose} aria-label="Close create dialog">
+              <X className="w-5 h-5" aria-hidden />
             </Button>
           </div>
 
@@ -126,10 +126,11 @@ export function FloatingCreateButton({ onCreatePost }: { onCreatePost: () => voi
       <div className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-50">
         <Button 
           size="icon" 
+          aria-label="Create new post"
           className="w-14 h-14 rounded-full shadow-xl shadow-primary/30 bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105 transition-transform"
           onClick={() => setIsOpen(true)}
         >
-          <Plus className="w-6 h-6" />
+          <Plus className="w-6 h-6" aria-hidden />
         </Button>
       </div>
 

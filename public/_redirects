@@ -1,0 +1,2 @@
+# SPA fallback: serve index.html for unknown client-side routes.
+/*    /index.html   200

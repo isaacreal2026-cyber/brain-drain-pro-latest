@@ -43,28 +43,29 @@ export function BrainCard({ brain, onClick, onFork, onUpdated }: { brain: Brain;
           </div>
           <CardTitle className="text-xl font-semibold leading-tight text-foreground pr-8">{brain.title}</CardTitle>
           
-          <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button 
-              variant="secondary" 
-              size="icon" 
+          <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label={brain.isFavorite ? "Remove from favorites" : "Add to favorites"}
+              aria-pressed={brain.isFavorite}
               className={`h-8 w-8 rounded-full shadow-sm bg-background border ${brain.isFavorite ? "text-yellow-500 border-yellow-500/50" : "text-muted-foreground border-border/50 hover:text-yellow-500 hover:border-yellow-500/30"}`}
               onClick={handleToggleFavorite}
-              title={brain.isFavorite ? "Unfavorite" : "Favorite"}
             >
-              <Star className={`w-4 h-4 ${brain.isFavorite ? "fill-current" : ""}`} />
+              <Star className={`w-4 h-4 ${brain.isFavorite ? "fill-current" : ""}`} aria-hidden />
             </Button>
             {onFork && (
-              <Button 
-                variant="secondary" 
-                size="icon" 
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label={`Fork ${brain.title}`}
                 className="h-8 w-8 rounded-full shadow-sm bg-background border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30"
                 onClick={(e) => {
                   e.stopPropagation();
                   onFork(brain);
                 }}
-                title="Fork Brain"
               >
-                <GitFork className="w-4 h-4" />
+                <GitFork className="w-4 h-4" aria-hidden />
               </Button>
             )}
           </div>

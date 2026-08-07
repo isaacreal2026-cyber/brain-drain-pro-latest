@@ -56,13 +56,14 @@ export function NotificationsPage() {
             className="rounded-full h-8 text-xs font-bold border-border cursor-pointer"
             onClick={() => markAllAsRead()} 
             disabled={unreadCount === 0}
+            aria-label="Mark all notifications as read"
           >
             <CheckCheck className="w-3.5 h-3.5 mr-1.5" />
             Mark all read
           </Button>
         </div>
         <Tabs value={filter} onValueChange={setFilter} className="w-full">
-          <TabsList className="w-full rounded-none border-b border-border/40 bg-transparent h-12 p-0 overflow-x-auto flex-nowrap scrollbar-none justify-start">
+          <TabsList aria-label="Notification filters" className="w-full rounded-none border-b border-border/40 bg-transparent h-12 p-0 overflow-x-auto flex-nowrap scrollbar-none justify-start">
             <TabsTrigger 
               value="all" 
               className="flex-1 rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-extrabold data-[state=active]:border-b-[3px] data-[state=active]:border-primary h-full px-4 text-sm text-muted-foreground hover:bg-muted/10 transition-all cursor-pointer"
