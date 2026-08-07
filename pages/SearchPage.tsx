@@ -109,20 +109,24 @@ export function SearchPage() {
             ) : (
               <ul className="space-y-1">
                 {recentSearches.map(search => (
-                  <li key={search}>
-                    <Button 
-                      variant="ghost" 
-                      className="w-full justify-start h-14 px-4 text-base font-normal group"
+                  <li key={search} className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      className="flex-1 justify-start h-14 px-4 text-base font-normal group"
                       onClick={() => handleRecentClick(search)}
+                      aria-label={`Search again for ${search}`}
                     >
-                      <Clock className="w-5 h-5 mr-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <Clock className="w-5 h-5 mr-4 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden />
                       <span className="flex-1 text-left truncate">{search}</span>
-                      <div 
-                        className="p-2 rounded-full hover:bg-muted/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => removeRecent(search, e)}
-                      >
-                        <X className="w-4 h-4 text-muted-foreground" />
-                      </div>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 rounded-full"
+                      onClick={(e) => removeRecent(search, e)}
+                      aria-label={`Remove ${search} from recent searches`}
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" aria-hidden />
                     </Button>
                   </li>
                 ))}
@@ -132,7 +136,7 @@ export function SearchPage() {
         </div>
       ) : (
         <Tabs defaultValue="all" className="mt-4">
-          <TabsList className="w-full justify-start border-b border-border/40 rounded-none bg-transparent h-12 p-0 overflow-x-auto flex-nowrap">
+          <TabsList aria-label="Search result type" className="w-full justify-start border-b border-border/40 rounded-none bg-transparent h-12 p-0 overflow-x-auto flex-nowrap">
             <TabsTrigger value="all" className="rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary h-full px-6 text-[15px] text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Top</TabsTrigger>
             <TabsTrigger value="topics" className="rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary h-full px-6 text-[15px] text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Topics</TabsTrigger>
             <TabsTrigger value="brains" className="rounded-none data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary h-full px-6 text-[15px] text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Brains</TabsTrigger>

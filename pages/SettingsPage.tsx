@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
-import { User, Shield, Paintbrush, Database, Check, ChevronRight, Monitor, Moon, Sun, LogOut } from "lucide-react"
+import { User, Shield, Paintbrush, Database, Check, ChevronRight, Monitor, Moon, Sun, LogOut, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,19 +11,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { idb } from "@/lib/db";
+import { AdminGateDialog } from "@/components/ui/admin-gate-dialog";
+import { refreshLocalData } from "@/lib/data-maintenance";
+
+interface SavedSettings {
+  displayName: string;
+  bio: string;
+  notifications: boolean;
+  privateProfile: boolean;
+  dataCollection: boolean;
+}
+
+const DEFAULT_SETTINGS: SavedSettings = {
+  displayName: "",
+  bio: "",
+  notifications: true,
+  privateProfile: false,
+  dataCollection: true,
+};
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
-  const { user, logOut } = useAuth();
+  const { user, profile, updateProfileData, logOut } = useAuth();
 
-  const [savedSettings, setSavedSettings] = useState({
-    displayName: "Isaac Real",
-    bio: "AI logic creator & cognitive architect.",
-    notifications: true,
-    privateProfile: false,
-    dataCollection: true,
-  });
+  const [savedSettings, setSavedSettings] = useState<SavedSettings>(DEFAULT_SETTINGS);
 
   const [displayName, setDisplayName] = useState(savedSettings.displayName);
   const [bio, setBio] = useState(savedSettings.bio);
@@ -31,6 +43,64 @@ export function SettingsPage() {
   const [privateProfile, setPrivateProfile] = useState(savedSettings.privateProfile);
   const [dataCollection, setDataCollection] = useState(savedSettings.dataCollection);
   const [activeSection, setActiveSection] = useState("appearance");
+  const [isRefreshOpen, setIsRefreshOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Hydrate the form from the signed-in/guest profile and local privacy
+  // preferences once they load.
+  useEffect(() => {
+    let cancelled = false;
+    const hydrate = async () => {
+      const next: SavedSettings = { ...DEFAULT_SETTINGS };
+      if (profile) {
+        next.displayName = profile.displayName || user?.displayName || "";
+        next.bio = profile.bio || "";
+      }
+      try {
+        const privacy = await idb.get<Partial<SavedSettings>>("settings", "privacy-settings");
+        if (privacy) {
+          if (typeof privacy.notifications === "boolean") next.notifications = privacy.notifications;
+          if (typeof privacy.privateProfile === "boolean") next.privateProfile = privacy.privateProfile;
+          if (typeof privacy.dataCollection === "boolean") next.dataCollection = privacy.dataCollection;
+        }
+      } catch {
+        // Best-effort; defaults are fine.
+      }
+      if (cancelled) return;
+      setSavedSettings(next);
+      setDisplayName(next.displayName);
+      setBio(next.bio);
+      setNotifications(next.notifications);
+      setPrivateProfile(next.privateProfile);
+      setDataCollection(next.dataCollection);
+    };
+    void hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, user?.displayName]);
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshLocalData();
+      toast({
+        title: "Data refreshed",
+        description: "Local content has been reset. Reloading…",
+      });
+      // Reload after a brief beat so the toast is visible and seeding re-runs.
+      window.setTimeout(() => window.location.reload(), 600);
+    } catch (error) {
+      console.error("Failed to refresh local data", error);
+      setIsRefreshing(false);
+      toast({
+        title: "Refresh failed",
+        description: "Could not refresh local data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const isDirty = 
     displayName !== savedSettings.displayName ||
@@ -58,18 +128,44 @@ export function SettingsPage() {
     });
   };
 
-  const handleSave = () => {
-    setSavedSettings({
+  const handleSave = async () => {
+    setIsSaving(true);
+    const next: SavedSettings = {
       displayName,
       bio,
       notifications,
       privateProfile,
       dataCollection,
-    });
-    toast({
-      title: "Settings Saved",
-      description: "Your configurations have been successfully updated.",
-    });
+    };
+    try {
+      // Persist profile fields through the auth layer (Firestore for signed-in
+      // users, IndexedDB for guests). Privacy toggles are stored locally.
+      await updateProfileData({ displayName: displayName.trim() || "Builder", bio });
+      try {
+        await idb.put("settings", {
+          id: "privacy-settings",
+          notifications,
+          privateProfile,
+          dataCollection,
+        });
+      } catch {
+        // Privacy preferences are best-effort; profile save is the priority.
+      }
+      setSavedSettings(next);
+      toast({
+        title: "Settings saved",
+        description: "Your configurations have been updated.",
+      });
+    } catch (error) {
+      console.error("Failed to save settings", error);
+      toast({
+        title: "Save failed",
+        description: "Could not save your settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const sections = [
@@ -323,6 +419,13 @@ export function SettingsPage() {
                 <span>Export Account Data</span>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </Button>
+              <Button onClick={() => setIsRefreshOpen(true)} variant="outline" className="w-full justify-between h-14 px-6 font-normal">
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh Local Data
+                </span>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </Button>
               <Button onClick={() => handleAction("Delete Account")} variant="outline" className="w-full justify-between h-14 px-6 font-normal text-destructive hover:text-destructive hover:bg-destructive/10">
                 <span>Delete Account</span>
                 <ChevronRight className="w-5 h-5 text-destructive/50" />
@@ -344,12 +447,24 @@ export function SettingsPage() {
             <Button variant="ghost" size="sm" onClick={handleDiscard}>
               Discard
             </Button>
-            <Button size="sm" onClick={handleSave} className="bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-              Save Settings
+            <Button size="sm" onClick={() => void handleSave()} disabled={isSaving} className="bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              {isSaving ? "Saving…" : "Save Settings"}
             </Button>
           </div>
         </div>
       )}
+
+      <AdminGateDialog
+        open={isRefreshOpen}
+        onOpenChange={(open) => {
+          if (!isRefreshing) setIsRefreshOpen(open);
+        }}
+        title="Refresh local data"
+        description="This clears locally stored brains, posts, missions, messages and other content, then reloads the app with fresh starter data. Your profile, appearance and privacy settings are kept. This cannot be undone."
+        confirmLabel="Refresh data & reload"
+        busy={isRefreshing}
+        onConfirm={handleRefreshData}
+      />
     </div>
   );
 }

@@ -59,7 +59,7 @@ const SEED_POSTS: Post[] = [
 ];
 
 export function HomeFeed() {
-  const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial();
+  const { posts, isLoading, addPost, reactToPost, refreshPosts } = useSocial("foryou", null);
   const { topics, addTopic, refreshTopics } = useTopics();
   const { communities } = useCommunities();
   const { data: analyticsEvents = [] } = useAnalyticsEvents();
@@ -191,7 +191,7 @@ export function HomeFeed() {
       
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
         <Tabs value={activeFeed} onValueChange={handleFeedChange} className="w-full">
-          <TabsList className="bg-transparent w-full h-13 flex p-0 border-b-0">
+          <TabsList aria-label="Feed view" className="bg-transparent w-full h-13 flex p-0 border-b-0">
             <TabsTrigger value="foryou" className="flex-1 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary rounded-none px-4 pb-0 text-[15px] font-medium text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">For You</TabsTrigger>
             <TabsTrigger value="following" className="flex-1 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary rounded-none px-4 pb-0 text-[15px] font-medium text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Following</TabsTrigger>
             <TabsTrigger value="trending" className="flex-1 h-full data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-primary rounded-none px-4 pb-0 text-[15px] font-medium text-muted-foreground hover:bg-muted/20 transition-all cursor-pointer">Trending</TabsTrigger>
@@ -199,18 +199,24 @@ export function HomeFeed() {
         </Tabs>
       </div>
 
-      <div className="sticky top-[52px] z-10 bg-background/80 backdrop-blur-xl border-b border-border/40 py-3 overflow-x-auto flex gap-2 px-4 scrollbar-none">
-        <Button 
-          variant={selectedTopicId === null ? "default" : "outline"} 
+      <div
+        role="toolbar"
+        aria-label="Filter by topic"
+        className="sticky top-[52px] z-10 bg-background/80 backdrop-blur-xl border-b border-border/40 py-3 overflow-x-auto flex gap-2 px-4 scrollbar-none"
+      >
+        <Button
+          variant={selectedTopicId === null ? "default" : "outline"}
+          aria-pressed={selectedTopicId === null}
           className="rounded-full shrink-0 px-4 py-1.5 h-8 text-sm font-semibold transition-all duration-200 cursor-pointer"
           onClick={() => handleTopicSelect(null)}
         >
           All
         </Button>
         {topics.map(topic => (
-          <Button 
-            key={topic.id} 
-            variant={selectedTopicId === topic.id ? "default" : "outline"} 
+          <Button
+            key={topic.id}
+            variant={selectedTopicId === topic.id ? "default" : "outline"}
+            aria-pressed={selectedTopicId === topic.id}
             className="rounded-full shrink-0 px-4 py-1.5 h-8 text-sm font-semibold transition-all duration-200 cursor-pointer"
             onClick={() => handleTopicSelect(topic.id)}
           >
@@ -221,8 +227,17 @@ export function HomeFeed() {
 
       <div className="p-4 border-b border-border/50">
         <div
-          className="flex items-center gap-4 bg-muted/30 p-3 rounded-2xl cursor-text hover:bg-muted/50 transition-colors border border-border/50"
+          role="button"
+          tabIndex={0}
+          aria-label="Create a new post"
+          className="w-full flex items-center gap-4 bg-muted/30 p-3 rounded-2xl cursor-text hover:bg-muted/50 transition-colors border border-border/50 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => openCreator("post")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openCreator("post");
+            }
+          }}
         >
           <div className="w-10 h-10 rounded-full bg-primary/20 flex flex-shrink-0 items-center justify-center text-primary font-bold text-sm">
             ME
@@ -230,9 +245,14 @@ export function HomeFeed() {
           <div className="flex-1 text-muted-foreground">
             Share your knowledge...
           </div>
-          <Button size="sm" className="rounded-full px-4 font-semibold" onClick={(event) => { event.stopPropagation(); openCreator("post"); }}>
+          <button
+            type="button"
+            tabIndex={-1}
+            className="inline-flex items-center justify-center rounded-full px-4 font-semibold h-8 bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
+            onClick={(event) => { event.stopPropagation(); openCreator("post"); }}
+          >
             Post
-          </Button>
+          </button>
         </div>
         <div className="flex items-center justify-between gap-1 sm:gap-2 mt-3 px-1">
           <Button
@@ -296,11 +316,26 @@ export function HomeFeed() {
               <div ref={setObserverRef} className="h-4" />
             </>
           ) : (
-            <div className="p-8 text-center text-muted-foreground">
-              {postIdFromUrl ? "Post not found." : "No posts yet."}
-              {postIdFromUrl && (
-                <div className="mt-4">
-                  <Button variant="outline" onClick={() => setLocation("/")}>View All Posts</Button>
+            <div className="p-8 text-center">
+              {postIdFromUrl ? (
+                <>
+                  <p className="text-muted-foreground">Post not found.</p>
+                  <div className="mt-4">
+                    <Button variant="outline" onClick={() => setLocation("/")}>View All Posts</Button>
+                  </div>
+                </>
+              ) : (
+                <div className="max-w-xs mx-auto space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <PenSquare className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">Be the first to post</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Share a thought, ask a question, or attach a brain to get the conversation started.
+                  </p>
+                  <Button className="mt-2" onClick={() => openCreator("post")}>
+                    <PenSquare className="w-4 h-4 mr-2" /> Create a post
+                  </Button>
                 </div>
               )}
             </div>

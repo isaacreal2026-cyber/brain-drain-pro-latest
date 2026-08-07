@@ -39,11 +39,8 @@ export function useNotifications() {
   const { mutateAsync: markAllAsRead } = useMutation({
     mutationFn: async () => {
       const all = await idb.getAll<Notification>(STORE);
-      for (const n of all) {
-        if (!n.read) {
-          await idb.put(STORE, { ...n, read: true });
-        }
-      }
+      const unread = all.filter((n) => !n.read).map((n) => ({ ...n, read: true }));
+      await idb.putAll(STORE, unread);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORE] });
@@ -98,9 +95,7 @@ export function useNotifications() {
           },
         ];
 
-        for (const n of seedData) {
-          await idb.put(STORE, n);
-        }
+        await idb.putAll(STORE, seedData);
         queryClient.invalidateQueries({ queryKey: [STORE] });
       }
     };

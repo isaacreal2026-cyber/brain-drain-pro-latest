@@ -20,12 +20,12 @@ export function LibraryPage() {
     <div className="flex-1 flex flex-col w-full h-full overflow-hidden bg-background">
       <div className="container mx-auto px-4 py-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">Legacy</h1>
-          <p className="text-muted-foreground">Preserve your expert systems, knowledge modules, and conceptual lineage.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Brains</h1>
+          <p className="text-muted-foreground">Your expert systems, knowledge modules, and decision guides.</p>
         </div>
 
         <Tabs defaultValue="my-brain" className="w-full flex-1 flex flex-col">
-          <TabsList className="w-full justify-start overflow-x-auto bg-muted/50 p-1 mb-6">
+          <TabsList aria-label="Library sections" className="w-full justify-start overflow-x-auto bg-muted/50 p-1 mb-6">
             <TabsTrigger value="my-brain" className="flex items-center gap-2 data-[state=active]:bg-background">
               <Database className="w-4 h-4" /> My Brain
             </TabsTrigger>

@@ -1,6 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Inter font is loaded via <link> in index.html with preconnect so it does not
+   block first paint. Do NOT add a CSS @import for it here — that is
+   render-blocking and delays FCP. */
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -343,13 +345,13 @@
 
 @media (max-width: 767px) {
   :root {
-    --app-main-heading-size: 1.25rem;      /* 20px mobile */
-    --app-subheading-size: 1.0625rem;      /* 17px mobile */
-    --app-card-heading-size: 1rem;         /* 16px mobile */
-    --app-body-text-size: 0.9375rem;       /* 15px mobile */
-    --app-secondary-text-size: 0.8125rem;  /* 13px mobile */
-    --app-action-text-size: 0.875rem;      /* 14px mobile */
-    --app-body-line-height: 1.45;
+    --app-main-heading-size: 1.375rem;      /* 22px mobile */
+    --app-subheading-size: 1.125rem;        /* 18px mobile */
+    --app-card-heading-size: 1.0625rem;     /* 17px mobile */
+    --app-body-text-size: 1rem;             /* 16px mobile — readable for seniors, avoids iOS zoom */
+    --app-secondary-text-size: 0.875rem;    /* 14px mobile */
+    --app-action-text-size: 0.9375rem;      /* 15px mobile */
+    --app-body-line-height: 1.5;
   }
 }
 
@@ -399,4 +401,32 @@ select {
 .text-xs {
   font-size: var(--app-secondary-text-size);
   line-height: 1.38;
+}
+
+/* Honor users' preferred motion: disable heavy animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Minimum 44x44px touch targets for primary interactive elements (WCAG 2.5.5).
+   Icon-only buttons get this via the .touch-target utility where needed. */
+@media (pointer: coarse) {
+  button[class*="size-7"],
+  button[class*="size-8"] {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* Visible keyboard focus ring for accessibility. */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }

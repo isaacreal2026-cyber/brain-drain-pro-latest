@@ -22,9 +22,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { idb } from "@/lib/db";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth/AuthContext";
+
+// Firebase/Firestore is large and only needed for the personality-based
+// recommendation. Lazy-load it to keep the Pathways page fast.
+async function fetchPersonalityRecommendation(uid: string): Promise<string | null> {
+  const [{ doc, getDoc }, { db }] = await Promise.all([
+    import("firebase/firestore"),
+    import("@/lib/firebase"),
+  ]);
+  const snap = await getDoc(doc(db, "personality_tests", uid));
+  if (!snap.exists()) return null;
+  const data = snap.data() as { isCompleted?: boolean; answers?: Record<string, number> };
+  if (!data.isCompleted || !data.answers) return null;
+  let openness = 0;
+  let conscientiousness = 0;
+  if (data.answers.q1) openness += data.answers.q1;
+  if (data.answers.q6) openness += data.answers.q6;
+  if (data.answers.q2) conscientiousness += data.answers.q2;
+  if (data.answers.q7) conscientiousness += data.answers.q7;
+  if (openness > conscientiousness && openness >= 8) return "Creativity";
+  if (conscientiousness >= 8) return "Discipline";
+  return "Learning";
+}
 
 const CATEGORY_COLORS: Record<string, string> = {
   Financial: "text-green-500 bg-green-500/10 border-green-500/20",
@@ -40,7 +60,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function MissionsPage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const { missions, milestones, isLoading, createMission, updateMission, completeMission, toggleMilestone, refresh } = useMissions();
+  const { missions, milestones, isLoading, createMission, updateMission, completeMission, toggleMilestone, updateMilestone, refresh } = useMissions();
   const { reputation } = useReputation();
   const [filter, setFilter] = useState("all");
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
@@ -52,47 +72,35 @@ export function MissionsPage() {
   const [coordinationTagFilter, setCoordinationTagFilter] = useState("All");
   const { toast } = useToast();
 
+  // Keep the milestone-note editor in sync with persisted notes.
   useEffect(() => {
-    // Simulate finding a matching request
-    const timer = setTimeout(() => {
-      toast({
-        title: "Match Found!",
-        description: "An open request matches your active mission: Build Mental Models.",
-        duration: 5000,
-      });
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [toast]);
+    const notesByMilestone: Record<string, string> = {};
+    for (const m of milestones) {
+      if (m.notes) notesByMilestone[m.id] = m.notes;
+    }
+    setMilestoneNotes((prev) => ({ ...notesByMilestone, ...prev }));
+  }, [milestones]);
+
+  const handleSaveMilestoneNotes = async (milestoneId: string) => {
+    await updateMilestone(milestoneId, { notes: milestoneNotes[milestoneId] || "" });
+    toast({ title: "Notes saved", description: "Your milestone notes have been saved." });
+  };
 
   useEffect(() => {
-    if (user) {
-      getDoc(doc(db, "personality_tests", user.uid)).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.isCompleted && data.answers) {
-            let openness = 0;
-            let conscientiousness = 0;
-            // Simplified calculation based on questions in test
-            if (data.answers.q1) openness += data.answers.q1;
-            if (data.answers.q6) openness += data.answers.q6;
-            if (data.answers.q2) conscientiousness += data.answers.q2;
-            if (data.answers.q7) conscientiousness += data.answers.q7;
-            
-            if (openness > conscientiousness && openness >= 8) {
-              setRecommendedCategory("Creativity");
-            } else if (conscientiousness >= 8) {
-              setRecommendedCategory("Discipline");
-            } else {
-              setRecommendedCategory("Learning");
-            }
-          }
-        }
-      }).catch((e: any) => {
+    if (!user) return;
+    let cancelled = false;
+    fetchPersonalityRecommendation(user.uid)
+      .then((category) => {
+        if (!cancelled && category) setRecommendedCategory(category);
+      })
+      .catch((e: unknown) => {
         console.error("Failed to load personality test data", e);
         toast({ title: "Error", description: "Failed to load personality recommendations.", variant: "destructive" });
       });
-    }
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, toast]);
 
   // New Mission Form State
   const [title, setTitle] = useState("");
@@ -268,7 +276,7 @@ export function MissionsPage() {
 
       <Tabs defaultValue="systems" className="flex flex-col flex-1 min-h-0">
         <div className="border-b border-border/50 bg-card px-4 md:px-8">
-          <TabsList className="w-full justify-start h-12 bg-transparent overflow-x-auto flex-nowrap shrink-0">
+          <TabsList aria-label="Missions categories" className="w-full justify-start h-12 bg-transparent overflow-x-auto flex-nowrap shrink-0">
             <TabsTrigger value="systems" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 whitespace-nowrap">Systems</TabsTrigger>
             <TabsTrigger value="daily" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 whitespace-nowrap">Daily Actions</TabsTrigger>
             <TabsTrigger value="accountability" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 whitespace-nowrap">Accountability</TabsTrigger>
@@ -283,7 +291,7 @@ export function MissionsPage() {
         <div className={`md:w-[400px] border-r border-border/50 flex flex-col bg-background/50 ${selectedMissionId ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-4 border-b border-border/50">
             <Tabs value={filter} onValueChange={setFilter} className="w-full">
-              <TabsList className="grid grid-cols-4 w-full h-9">
+              <TabsList aria-label="Filter missions" className="grid grid-cols-4 w-full h-9">
                 <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
                 <TabsTrigger value="active" className="text-xs">Active</TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs">Done</TabsTrigger>
@@ -459,7 +467,7 @@ export function MissionsPage() {
                                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Attach Post</Button>
                                   <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"><Target className="w-3.5 h-3.5" /> Link Resource</Button>
                                   <div className="flex-1" />
-                                  <Button size="sm" className="h-7 text-xs">Save Notes</Button>
+                                  <Button size="sm" className="h-7 text-xs" onClick={() => handleSaveMilestoneNotes(ms.id)}>Save Notes</Button>
                                 </div>
                               </div>
                             )}
@@ -475,7 +483,7 @@ export function MissionsPage() {
                       <Button 
                         size="lg" 
                         onClick={() => completeMission(selectedMission.id)}
-                        className={`gap-2 font-bold ${allMilestonesDone ? 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 animate-pulse' : 'variant-secondary'}`}
+                        className={`gap-2 font-bold ${allMilestonesDone ? 'shadow-lg shadow-primary/20 animate-pulse' : ''}`}
                         variant={allMilestonesDone ? "default" : "secondary"}
                       >
                         <CheckCircle2 className="w-5 h-5" />

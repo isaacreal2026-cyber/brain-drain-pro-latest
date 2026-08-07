@@ -1,4 +1,5 @@
 import { idb } from "./db";
+import { env } from "./env";
 
 export type AnalyticsEventType =
   | "session_start"
@@ -34,6 +35,9 @@ const SESSION_KEY = "brain-builder-analytics-session";
 const STORE = "analytics_events";
 const MAX_BACKEND_BATCH_SIZE = 20;
 const BACKEND_FLUSH_DELAY_MS = 1_500;
+// Keep a soft cap on queued events so an offline session cannot grow without
+// bound in memory.
+const MAX_QUEUE_SIZE = 200;
 
 let backendQueue: AnalyticsEvent[] = [];
 let flushTimer: number | null = null;
@@ -74,8 +78,12 @@ function sanitizePayload(payload?: Record<string, unknown>) {
 }
 
 function getEventsEndpoint() {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
-  return `${apiBaseUrl.replace(/\/$/, "")}/api/events`;
+  return `${env.apiBaseUrl}/api/events`;
+}
+
+/** Events are only sent to the backend when analytics is enabled. */
+function isAnalyticsEnabled(): boolean {
+  return env.features.analytics;
 }
 
 function scheduleBackendFlush() {
@@ -107,7 +115,15 @@ function sanitizePayloadForBackend(payload?: Record<string, unknown>) {
   return sanitized;
 }
 
+function requeueBatch(batch: AnalyticsEvent[]) {
+  // Put failed events back at the front of the queue for a later retry,
+  // but cap total memory usage.
+  backendQueue = [...batch, ...backendQueue].slice(0, MAX_QUEUE_SIZE);
+}
+
 function queueBackendEvent(event: AnalyticsEvent) {
+  if (!isAnalyticsEnabled()) return;
+
   const backendEvent: AnalyticsEvent = {
     ...event,
     route: typeof window !== "undefined" ? window.location.pathname : event.route.split("?")[0],
@@ -115,6 +131,9 @@ function queueBackendEvent(event: AnalyticsEvent) {
   };
 
   backendQueue.push(backendEvent);
+  if (backendQueue.length > MAX_QUEUE_SIZE) {
+    backendQueue = backendQueue.slice(-MAX_QUEUE_SIZE);
+  }
 
   if (backendQueue.length >= MAX_BACKEND_BATCH_SIZE) {
     void flushAnalyticsEvents();
@@ -125,6 +144,7 @@ function queueBackendEvent(event: AnalyticsEvent) {
 
 export async function flushAnalyticsEvents() {
   if (typeof window === "undefined" || isFlushing || backendQueue.length === 0) return;
+  if (!isAnalyticsEnabled()) return;
 
   isFlushing = true;
   const batch = backendQueue.splice(0, MAX_BACKEND_BATCH_SIZE);
@@ -137,16 +157,25 @@ export async function flushAnalyticsEvents() {
       keepalive: true,
     });
 
-    // Static previews can return the SPA HTML with a 200 instead of an API response.
-    // Treat that as unavailable so analytics are not reported as successfully synced.
+    // Static previews can return the SPA HTML with a 200 instead of an API
+    // response. Treat that as unavailable and retry later.
     const contentType = response.headers.get("content-type") || "";
-    if (!response.ok || !contentType.includes("application/json")) {
-      if (response.status !== 404) {
-        console.warn("Analytics backend unavailable or rejected events", response.status);
-      }
+    if (response.ok && contentType.includes("application/json")) {
+      return;
     }
+
+    // 4xx other than 429 means the payload was rejected; do not retry it
+    // (it would loop forever). 5xx/429/network errors are retried.
+    if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      if (env.isDev && response.status !== 404) {
+        console.warn("Analytics events rejected", response.status);
+      }
+      return;
+    }
+    requeueBatch(batch);
   } catch {
-    // Best-effort only. Never rethrow or block the product experience.
+    // Network error — keep the events for a later attempt. Never block UX.
+    requeueBatch(batch);
   } finally {
     isFlushing = false;
     if (backendQueue.length > 0) scheduleBackendFlush();
@@ -155,13 +184,14 @@ export async function flushAnalyticsEvents() {
 
 export function flushAnalyticsEventsWithBeacon() {
   if (typeof navigator === "undefined" || backendQueue.length === 0 || !navigator.sendBeacon) return false;
+  if (!isAnalyticsEnabled()) return false;
 
   const batch = backendQueue.splice(0, MAX_BACKEND_BATCH_SIZE);
   const body = JSON.stringify({ events: batch, clientSentAt: Date.now() });
   const sent = navigator.sendBeacon(getEventsEndpoint(), new Blob([body], { type: "application/json" }));
 
   if (!sent) {
-    backendQueue = [...batch, ...backendQueue].slice(0, MAX_BACKEND_BATCH_SIZE * 3);
+    backendQueue = [...batch, ...backendQueue].slice(0, MAX_QUEUE_SIZE);
   }
 
   return sent;
