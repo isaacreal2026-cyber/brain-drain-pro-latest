@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Brain } from "@/lib/types";
 import { useDatabase } from "@/hooks/use-database";
 import { useReputation } from "@/hooks/use-reputation";
@@ -11,8 +11,9 @@ import { RuntimeEngine } from "./RuntimeEngine";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Plus, Network, Share, Download } from "lucide-react";
+import { Search, Plus, Network, Share, Download, PlayCircle } from "lucide-react";
 import { idb } from "@/lib/db";
+import { SampleBrainLibrary } from "@/components/ui/SampleBrainLibrary";
 
 export function Dashboard() {
   const { brains, isLoading, saveBrainData, deleteBrain, exportData, getBrainData, refresh } = useDatabase();
@@ -26,11 +27,24 @@ export function Dashboard() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEngineOpen, setIsEngineOpen] = useState(false);
+  const [isSamplesOpen, setIsSamplesOpen] = useState(false);
   
   // Forking state
   const [isForkOpen, setIsForkOpen] = useState(false);
   const [brainToFork, setBrainToFork] = useState<Brain | null>(null);
   const [forkTitle, setForkTitle] = useState("");
+
+  // Onboarding sets this flag when a new user taps "Try a sample brain".
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("brain-drain-open-sample") === "1") {
+        sessionStorage.removeItem("brain-drain-open-sample");
+        setIsSamplesOpen(true);
+      }
+    } catch {
+      // ignore private-mode storage errors
+    }
+  }, []);
 
   const filteredBrains = brains.filter(b => 
     b.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -59,6 +73,17 @@ export function Dashboard() {
     setForkTitle(`Fork of ${brain.title}`);
     setIsForkOpen(true);
   };
+
+  const handleSampleAdded = async (data: { brain: Brain; nodes: any[] }) => {
+    await saveBrainData(data);
+    await addXPEvent("brain_created", 10, "Tried a sample brain");
+    toast({
+      title: "Sample added",
+      description: `"${data.brain.title}" is in your library. You can edit or run it anytime.`,
+    });
+  };
+
+  const runBrain = (brain: Brain) => launchEngine(brain);
 
   const executeFork = async () => {
     if (!brainToFork || !forkTitle) return;
@@ -114,11 +139,14 @@ export function Dashboard() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={exportData} title="Export">
+          <Button variant="ghost" size="sm" onClick={exportData} title="Export" aria-label="Export brains">
             <Share className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setIsImportOpen(true)} title="Import">
+          <Button variant="ghost" size="sm" onClick={() => setIsImportOpen(true)} title="Import" aria-label="Import brains">
             <Download className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsSamplesOpen(true)} className="gap-2">
+            <PlayCircle className="w-4 h-4" /> Samples
           </Button>
           <Button size="sm" onClick={() => setIsWizardOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> New Brain
@@ -136,8 +164,27 @@ export function Dashboard() {
             {filteredBrains.length === 0 ? (
               <div className="text-center py-20 border border-dashed border-border/50 rounded-xl bg-card/30">
                 <Network className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-1">No brains found</h3>
-                <p className="text-muted-foreground">Adjust your search or create a new expert system.</p>
+                {searchQuery ? (
+                  <>
+                    <h3 className="text-lg font-medium mb-1">No brains found</h3>
+                    <p className="text-muted-foreground">Adjust your search or create a new expert system.</p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-medium mb-1">Start with a sample</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+                      Try a ready-made decision brain to see how it works, then fork and edit it into your own.
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <Button onClick={() => setIsSamplesOpen(true)} className="gap-2">
+                        <PlayCircle className="w-4 h-4" /> Try a sample
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsWizardOpen(true)} className="gap-2">
+                        <Plus className="w-4 h-4" /> Build your own
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -188,6 +235,13 @@ export function Dashboard() {
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImport={handleImportSave}
+      />
+
+      <SampleBrainLibrary
+        open={isSamplesOpen}
+        onOpenChange={setIsSamplesOpen}
+        onSampleAdded={handleSampleAdded}
+        onRunBrain={runBrain}
       />
 
       <RuntimeEngine

@@ -5,6 +5,7 @@ import { idb } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { BrainCircuit, UserRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 
 interface AuthContextType {
   user: AppUser | null;
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 const GUEST_STORAGE_KEY = "brain-builder-guest";
 const GUEST_PROFILE_ID = "guest-profile";
+const ONBOARDED_KEY = "brain-drain-onboarded";
 
 function makeGuestProfile(uid: string): UserProfile {
   return {
@@ -75,7 +77,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !localStorage.getItem(ONBOARDED_KEY),
+  );
   const { toast } = useToast();
+
+  const finishOnboarding = () => {
+    localStorage.setItem(ONBOARDED_KEY, "1");
+    setShowOnboarding(false);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -271,6 +281,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
+    if (showOnboarding) {
+      return (
+        <OnboardingTour
+          onFinish={finishOnboarding}
+          onTrySample={async () => {
+            // Flag the app to open a sample brain once the guest lands.
+            try {
+              sessionStorage.setItem("brain-drain-open-sample", "1");
+            } catch {
+              // ignore storage errors (private mode)
+            }
+            finishOnboarding();
+            await continueAsGuest();
+          }}
+        />
+      );
+    }
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-background p-6">
         <div className="max-w-md w-full bg-card border rounded-2xl p-8 text-center shadow-lg">

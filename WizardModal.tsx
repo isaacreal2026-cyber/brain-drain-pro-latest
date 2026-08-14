@@ -79,7 +79,7 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
 
   const handleNext = () => {
     if (step === 1 && !title.trim()) {
-      toast({ title: "Validation Error", description: "System Domain Title is required.", variant: "destructive" });
+      toast({ title: "Title required", description: "Give your brain a name before continuing.", variant: "destructive" });
       return;
     }
     setStep(s => s + 1);
@@ -139,9 +139,9 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
   };
 
   const steps = [
-    { num: 1, label: "Domain Definition", icon: BrainCircuit },
-    { num: 2, label: "Trait Library", icon: Tags },
-    { num: 3, label: "Logic Couplet Mapping", icon: GitMerge }
+    { num: 1, label: "Basics", icon: BrainCircuit },
+    { num: 2, label: "Factors", icon: Tags },
+    { num: 3, label: "Questions", icon: GitMerge }
   ];
 
   return (
@@ -182,39 +182,39 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
             <div className="space-y-5 max-w-2xl mx-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-mono uppercase text-muted-foreground tracking-wider">
-                    System Domain Title
+                  <Label className="text-sm font-medium text-foreground">
+                    Brain title
                   </Label>
                   <Input
                     data-testid="input-brain-title"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    placeholder="e.g., Solar Panel Installation Expert"
+                    placeholder="e.g., Which laptop should I buy?"
                     className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-mono uppercase text-muted-foreground tracking-wider">
-                    Categorization Tags (comma separated)
+                  <Label className="text-sm font-medium text-foreground">
+                    Tags (comma separated)
                   </Label>
                   <Input
                     data-testid="input-brain-category"
                     value={category}
                     onChange={e => setCategory(e.target.value)}
-                    placeholder="Renewable Energy, China Solars, Large Scale"
+                    placeholder="Shopping, Decisions, Tech"
                     className="h-11"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-mono uppercase text-muted-foreground tracking-wider">
-                  System Target Scope & Parameters
+                <Label className="text-sm font-medium text-foreground">
+                  What does this brain help decide?
                 </Label>
                 <Textarea
                   data-testid="textarea-brain-description"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  placeholder="Short summary of what this brain diagnoses and its constraints."
+                  placeholder="A short, plain-language summary of the decision this brain helps people make."
                   className="min-h-[120px]"
                 />
               </div>
@@ -225,11 +225,12 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
           {step === 2 && (
             <div className="space-y-4 max-w-2xl mx-auto">
               <div className="space-y-1">
-                <Label className="text-xs font-mono uppercase text-muted-foreground tracking-wider">
-                  Trait Library — dump all variables before building logic
+                <Label className="text-sm font-medium text-foreground">
+                  Factors to consider
                 </Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Optional. Helps you remember variables while linking questions.
+                  Optional. List the variables your questions will depend on
+                  (e.g. "budget", "roof type", "symptom").
                 </p>
               </div>
 

@@ -94,8 +94,10 @@ export function useMessages(activeConversationId?: string) {
           },
         ];
 
-        for (const c of convs) await idb.put(STORES.CONVERSATIONS, c);
-        for (const m of msgs) await idb.put(STORES.MESSAGES, m);
+        await Promise.all([
+          idb.putAll(STORES.CONVERSATIONS, convs),
+          idb.putAll(STORES.MESSAGES, msgs),
+        ]);
         
         queryClient.invalidateQueries({ queryKey: [STORES.CONVERSATIONS] });
         queryClient.invalidateQueries({ queryKey: [STORES.MESSAGES] });

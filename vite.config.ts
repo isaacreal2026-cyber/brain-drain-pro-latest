@@ -46,6 +46,28 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // Only split vendors that are used by the eagerly-loaded app shell.
+        // Heavy, route-specific libs (d3, recharts, framer-motion, firebase)
+        // stay inside their lazy route chunks so they are NOT preloaded on
+        // first paint — they download only when the user visits that screen.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("firebase")) return "firebase";
+          if (id.includes("@radix-ui")) return "radix";
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/")
+          ) {
+            return "react-vendor";
+          }
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     port,

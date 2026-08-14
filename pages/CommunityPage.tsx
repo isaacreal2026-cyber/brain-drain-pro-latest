@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Search, Shield, Stethoscope, Gamepad2, BookOpen, Activity, MessageCircle, Flame, ArrowUp, ArrowDown, MessageSquare, BrainCircuit, Handshake, Network, Crosshair, Zap, Puzzle, Sprout, Target, Heart, Smile, Star, Award } from "lucide-react";
+import { Users, Search, Shield, Stethoscope, Gamepad2, BookOpen, Activity, MessageCircle, Flame, ArrowUp, ArrowDown, MessageSquare, BrainCircuit, Handshake, Network, Crosshair, Zap, Puzzle, Sprout, Target, Heart, Smile, Star, Award, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -132,6 +132,21 @@ export function CommunityPage() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [checkinMessage, setCheckinMessage] = useState("");
   const [moodScore, setMoodScore] = useState<number>(0);
+  const [relayQuestion, setRelayQuestion] = useState("");
+  const [relayStatus, setRelayStatus] = useState<"idle" | "orbiting" | "found">("idle");
+
+  const launchRelay = () => {
+    if (!relayQuestion.trim() || relayStatus === "orbiting") return;
+    setRelayStatus("orbiting");
+    window.setTimeout(() => {
+      setRelayStatus("found");
+      toast({ title: "Question sent into orbit", description: "Tagged related subjects. Post launched." });
+      window.setTimeout(() => {
+        setRelayStatus("idle");
+        setRelayQuestion("");
+      }, 5000);
+    }, 2500);
+  };
 
   const filtered = communities.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -218,7 +233,7 @@ export function CommunityPage() {
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
       <Tabs defaultValue="connections" className="w-full">
-        <TabsList className="mb-6 grid w-full grid-cols-2 md:grid-cols-4 max-w-3xl mx-auto">
+        <TabsList aria-label="Community sections" className="mb-6 grid w-full grid-cols-2 md:grid-cols-4 max-w-3xl mx-auto">
           <TabsTrigger value="civilization" className="gap-2"><Users className="w-4 h-4"/> Civilization</TabsTrigger>
           <TabsTrigger value="connections" className="gap-2 hidden md:flex"><Network className="w-4 h-4"/> Purpose-Based</TabsTrigger>
           <TabsTrigger value="connections" className="gap-2 md:hidden"><Network className="w-4 h-4"/> Purpose</TabsTrigger>
@@ -736,42 +751,25 @@ export function CommunityPage() {
                   <label className="text-sm font-semibold mb-2 block">Active Relay (Ask the Circle)</label>
                   <p className="text-xs text-muted-foreground mb-3">Send a question into orbit. The system will find the best member or resource to help you.</p>
                   <div className="flex gap-2">
-                    <Input 
+                    <Input
                       placeholder="e.g. Can someone review my React architecture?"
                       className="bg-background"
-                      id="relay-input"
+                      value={relayQuestion}
+                      onChange={(e) => setRelayQuestion(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") launchRelay(); }}
+                      disabled={relayStatus === "orbiting"}
                     />
-                    <Button onClick={(e) => {
-                      const btn = e.currentTarget;
-                      const input = document.getElementById('relay-input') as HTMLInputElement;
-                      if (!input.value) return;
-                      
-                      const originalText = btn.innerHTML;
-                      btn.innerHTML = '<span class="animate-spin mr-2">⭕</span> Orbiting...';
-                      btn.disabled = true;
-                      
-                      setTimeout(() => {
-                        btn.innerHTML = '✔ Resource Found';
-                        btn.className = 'bg-green-600 text-white hover:bg-green-700 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 shadow h-9 px-4 py-2';
-                        
-                        const resultDiv = document.getElementById('relay-result');
-                        if (resultDiv) resultDiv.classList.remove('hidden');
-                        
-                        toast({ title: "Quesoneer Notification Sent!", description: `Tagged related subjects. Post launched.` });
-                        
-                        setTimeout(() => {
-                          btn.innerHTML = originalText;
-                          btn.disabled = false;
-                          btn.className = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2';
-                          input.value = '';
-                        }, 5000);
-                      }, 2500);
-                    }}>
-                      Launch
+                    <Button
+                      onClick={launchRelay}
+                      disabled={!relayQuestion.trim() || relayStatus === "orbiting"}
+                      className={relayStatus === "found" ? "bg-green-600 text-white hover:bg-green-700" : ""}
+                    >
+                      {relayStatus === "orbiting" && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {relayStatus === "orbiting" ? "Orbiting..." : relayStatus === "found" ? "✔ Resource Found" : "Launch"}
                     </Button>
                   </div>
-                  
-                  <div id="relay-result" className="hidden mt-4 p-4 border border-green-500/30 bg-green-500/10 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2">
+
+                  <div className={`mt-4 p-4 border border-green-500/30 bg-green-500/10 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 ${relayStatus === "found" ? "block" : "hidden"}`}>
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-green-600 dark:text-green-400 flex items-center gap-2">
                         ✔ Resource Found

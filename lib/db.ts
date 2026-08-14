@@ -1,22 +1,47 @@
 const DB_NAME = "brainBuilder";
 const DB_VERSION = 6;
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+/**
+ * Opens (or reuses the cached) IndexedDB connection. Reusing a single
+ * connection avoids the overhead of opening a new one for every read/write
+ * and prevents transaction churn during bulk operations.
+ */
 export function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+
+      // Recover from the browser invalidating the connection (e.g. storage
+      // eviction, private mode, devtools deletion).
+      db.onclose = () => {
+        dbPromise = null;
+      };
+      db.onversionchange = () => {
+        // Another tab/context requested a version upgrade; close gracefully
+        // so the upgrade can proceed.
+        db.close();
+        dbPromise = null;
+      };
+
+      resolve(db);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       const oldVersion = event.oldVersion;
-      
+
       if (oldVersion < 1) {
         if (!db.objectStoreNames.contains("brains")) {
           db.createObjectStore("brains", { keyPath: "id" });
         }
-        
+
         if (!db.objectStoreNames.contains("nodes")) {
           const nodeStore = db.createObjectStore("nodes", { keyPath: "id" });
           nodeStore.createIndex("brain_id", "brain_id", { unique: false });
@@ -108,6 +133,19 @@ export function openDB(): Promise<IDBDatabase> {
       }
     };
   });
+
+  return dbPromise;
+}
+
+/**
+ * Resets the cached connection so the next call to openDB() reopens it.
+ * Used after a versionchange/blocked event or when storage is cleared.
+ */
+export function resetDBConnection() {
+  if (dbPromise) {
+    dbPromise.then((db) => db.close()).catch(() => {});
+  }
+  dbPromise = null;
 }
 
 export const idb = {
@@ -145,7 +183,7 @@ export const idb = {
     });
   },
 
-  async put(storeName: string, value: any): Promise<void> {
+  async put<T = unknown>(storeName: string, value: T): Promise<void> {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
@@ -153,6 +191,26 @@ export const idb = {
       const request = store.put(value);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+    });
+  },
+
+  /**
+   * Persists many values to a single store inside ONE transaction. This is
+   * dramatically faster than awaiting idb.put() in a loop (which opens a new
+   * transaction per item).
+   */
+  async putAll<T = unknown>(storeName: string, values: T[]): Promise<void> {
+    if (values.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      for (const value of values) {
+        store.put(value);
+      }
     });
   },
 
@@ -165,5 +223,56 @@ export const idb = {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
-  }
+  },
+
+  /**
+   * Deletes many keys from one store in a single transaction.
+   */
+  async deleteAll(storeName: string, keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      for (const key of keys) {
+        store.delete(key);
+      }
+    });
+  },
+
+  async clear(storeName: string): Promise<void> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  /**
+   * Clears every object store. This is destructive and is only used by the
+   * admin-gated "Refresh data" action in Settings.
+   */
+  async clearAll(storeNames?: string[]): Promise<void> {
+    const db = await openDB();
+    const names = storeNames && storeNames.length > 0 ? storeNames : Array.from(db.objectStoreNames);
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(names, "readwrite");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+      for (const name of names) {
+        tx.objectStore(name).clear();
+      }
+    });
+  },
+
+  storeNames(): Promise<string[]> {
+    return openDB().then((db) => Array.from(db.objectStoreNames));
+  },
 };

@@ -1,5 +1,6 @@
 import { mkdir, appendFile } from "node:fs/promises";
 import path from "node:path";
+import { config } from "./config";
 
 export interface AnalyticsEvent {
   id: string;
@@ -23,7 +24,6 @@ export interface AnalyticsSummary {
 }
 
 const MAX_RECENT_EVENTS = 1_000;
-const DEFAULT_SUPABASE_TIMEOUT_MS = 2_500;
 
 const recentEvents: AnalyticsEvent[] = [];
 const sessionIds = new Set<string>();
@@ -32,28 +32,19 @@ const byRoute: Record<string, number> = {};
 const byPayloadKey: Record<string, number> = {};
 let totalEvents = 0;
 let lastEventAt: number | null = null;
-let currentStorageMode: AnalyticsStorageMode = hasSupabaseConfig()
-  ? "supabase"
-  : process.env.ANALYTICS_DISABLE_FILE_STORAGE === "true"
-    ? "memory"
-    : "file";
 
-function hasSupabaseConfig() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+function determineInitialStorageMode(): AnalyticsStorageMode {
+  if (config.supabase.isConfigured && !config.analytics.disableSupabase) {
+    return "supabase";
+  }
+  if (config.analytics.disableFileStorage) return "memory";
+  return "file";
 }
 
-function getSupabaseTableName() {
-  return process.env.SUPABASE_ANALYTICS_TABLE || "analytics_events";
-}
-
-function getSupabaseTimeoutMs() {
-  const value = Number(process.env.SUPABASE_REQUEST_TIMEOUT_MS || DEFAULT_SUPABASE_TIMEOUT_MS);
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_SUPABASE_TIMEOUT_MS;
-}
+let currentStorageMode: AnalyticsStorageMode = determineInitialStorageMode();
 
 function getAnalyticsFilePath() {
-  const configuredPath = process.env.ANALYTICS_EVENTS_FILE;
-  if (configuredPath) return configuredPath;
+  if (config.analytics.eventsFile) return config.analytics.eventsFile;
   return path.resolve(process.cwd(), "data", "analytics-events.jsonl");
 }
 
@@ -69,16 +60,16 @@ function toSupabaseRow(event: AnalyticsEvent) {
 }
 
 async function appendEventsToSupabase(events: AnalyticsEvent[]) {
-  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = config.supabase.url.replace(/\/+$/, "");
+  const serviceRoleKey = config.supabase.serviceRoleKey;
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Supabase analytics storage is not configured.");
   }
 
-  const tableName = encodeURIComponent(getSupabaseTableName());
+  const tableName = encodeURIComponent(config.supabase.analyticsTable);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getSupabaseTimeoutMs());
+  const timeout = setTimeout(() => controller.abort(), config.supabase.timeoutMs);
 
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/${tableName}`, {
@@ -95,7 +86,9 @@ async function appendEventsToSupabase(events: AnalyticsEvent[]) {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Supabase analytics insert failed with ${response.status}: ${body.slice(0, 200)}`);
+      throw new Error(
+        `Supabase analytics insert failed with ${response.status}: ${body.slice(0, 200)}`,
+      );
     }
   } finally {
     clearTimeout(timeout);
@@ -138,7 +131,7 @@ function topEntries(source: Record<string, number>, limit = 10) {
 export async function storeAnalyticsEvents(events: AnalyticsEvent[]) {
   rememberInMemory(events);
 
-  if (process.env.ANALYTICS_DISABLE_SUPABASE !== "true" && hasSupabaseConfig()) {
+  if (config.supabase.isConfigured && !config.analytics.disableSupabase) {
     try {
       await appendEventsToSupabase(events);
       currentStorageMode = "supabase";
@@ -148,7 +141,7 @@ export async function storeAnalyticsEvents(events: AnalyticsEvent[]) {
     }
   }
 
-  if (process.env.ANALYTICS_DISABLE_FILE_STORAGE === "true") {
+  if (config.analytics.disableFileStorage) {
     currentStorageMode = "memory";
     return { storageMode: currentStorageMode };
   }

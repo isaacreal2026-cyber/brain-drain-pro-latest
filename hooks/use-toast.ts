@@ -5,8 +5,8 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -55,7 +55,7 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
-const addToRemoveQueue = (toastId: string) => {
+const addToRemoveQueue = (toastId: string, duration = TOAST_REMOVE_DELAY) => {
   if (toastTimeouts.has(toastId)) {
     return
   }
@@ -66,7 +66,7 @@ const addToRemoveQueue = (toastId: string) => {
       type: "REMOVE_TOAST",
       toastId: toastId,
     })
-  }, TOAST_REMOVE_DELAY)
+  }, duration)
 
   toastTimeouts.set(toastId, timeout)
 }
@@ -90,14 +90,18 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
+      const dismissOne = (toast: ToasterToast) => {
+        // Toasts with an infinite duration (error toasts) are only
+        // removed when the user dismisses them, not on a timer.
+        if (toast.duration === Number.POSITIVE_INFINITY) return
+        addToRemoveQueue(toast.id, toast.duration)
+      }
+
       if (toastId) {
-        addToRemoveQueue(toastId)
+        const found = state.toasts.find((t) => t.id === toastId)
+        if (found) dismissOne(found)
       } else {
-        state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
-        })
+        state.toasts.forEach(dismissOne)
       }
 
       return {
@@ -139,7 +143,7 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function toast({ duration, ...props }: Toast & { duration?: number }) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -149,12 +153,20 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
+  // Destructive/error toasts stay until the user acts, so they are not
+  // missed. They can still be swiped/tapped closed. Radix treats
+  // duration=Infinity as "do not auto-dismiss".
+  const isError = props.variant === "destructive"
+  const effectiveDuration =
+    duration ?? (isError ? Number.POSITIVE_INFINITY : TOAST_REMOVE_DELAY)
+
   dispatch({
     type: "ADD_TOAST",
     toast: {
       ...props,
       id,
       open: true,
+      duration: effectiveDuration,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },

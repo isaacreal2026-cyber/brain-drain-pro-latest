@@ -40,7 +40,7 @@ export function useCommunities() {
           { id: "c3", name: "Game Dev", description: "Creating game logic with brains.", memberCount: 300, active: false, icon: "gamepad" },
           { id: "c4", name: "Philosophy", description: "Epistemology and ontology.", memberCount: 150, active: true, icon: "book" },
         ];
-        for (const c of seedData) await idb.put(STORE, c);
+        await idb.putAll(STORE, seedData);
         queryClient.invalidateQueries({ queryKey: [STORE] });
       }
     };
