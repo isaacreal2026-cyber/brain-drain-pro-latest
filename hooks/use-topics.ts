@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
 import { Topic } from "@/lib/types";
 import { env } from "@/lib/env";
-import { fetchTopics, createTopic as createTopicApi, isTopicsError } from "@/lib/api/topics";
+import { fetchTopics, createTopic as createTopicApi, followTopic, isTopicsError } from "@/lib/api/topics";
 import { getAuthToken } from "@/lib/auth-token";
 
 function sortTopics(topics: Topic[]): Topic[] {
@@ -89,7 +89,6 @@ export function useTopics() {
     mutationFn: async (topicId: string) => {
       const token = await getAuthToken();
       if (env.apiBaseUrl) {
-        const { followTopic } = await import("@/lib/api/topics");
         await followTopic(topicId, token);
       }
       // Mark followed locally so the UI updates immediately.
