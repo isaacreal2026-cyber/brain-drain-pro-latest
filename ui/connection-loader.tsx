@@ -24,7 +24,7 @@ export function ConnectionLoader() {
       aria-hidden
     >
       <div
-        className="h-full w-1/3 bg-primary shadow-[0_0_10px_hsl(var(--primary))]"
+        className="h-full w-1/3 bg-accent"
         style={{ animation: "bd-loader 0.9s ease-out forwards" }}
       />
       <style>{`
