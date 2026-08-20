@@ -5,27 +5,39 @@ import { idb } from "../lib/db";
 
 const XP_PER_LEVEL = 200;
 
+const DEFAULT_REPUTATION: Reputation = {
+  id: "me",
+  xp: 0,
+  level: 1,
+  streak: 0,
+  lastActiveDate: "",
+  totalMissionsCompleted: 0,
+  totalBrainsCreated: 0,
+  totalCheckIns: 0,
+  badges: [],
+};
+
+/**
+ * Reads the reputation record straight from IndexedDB (creating it on first
+ * use). Mutations must read through this instead of the cached query data so
+ * back-to-back XP awards (e.g. a milestone that also completes a mission)
+ * accumulate instead of overwriting each other with a stale snapshot.
+ */
+async function loadReputation(): Promise<Reputation> {
+  const stored = await idb.get<Reputation>("reputation", "me");
+  if (stored) return stored;
+  const fresh: Reputation = { ...DEFAULT_REPUTATION, badges: [] };
+  await idb.put("reputation", fresh);
+  return fresh;
+}
+
 export function useReputation() {
   const queryClient = useQueryClient();
 
   const { data: { reputation = null, xpEvents = [] } = {}, isLoading } = useQuery({
     queryKey: ["reputationData"],
     queryFn: async () => {
-      let rep = await idb.get<Reputation>("reputation", "me");
-      if (!rep) {
-        rep = {
-          id: "me",
-          xp: 0,
-          level: 1,
-          streak: 0,
-          lastActiveDate: "",
-          totalMissionsCompleted: 0,
-          totalBrainsCreated: 0,
-          totalCheckIns: 0,
-          badges: []
-        };
-        await idb.put("reputation", rep);
-      }
+      const rep = await loadReputation();
 
       const events = await idb.getAll<XPEvent>("xp_events");
       return {
@@ -37,22 +49,26 @@ export function useReputation() {
 
   const addXPEventMutation = useMutation({
     mutationFn: async ({ type, xpGained, description }: { type: XPEvent["type"], xpGained: number, description: string }) => {
+      // Guard against NaN/Infinity reaching the stored totals: a single bad
+      // value would make the XP counter unrecoverable.
+      const gained = Number.isFinite(xpGained) ? Math.trunc(xpGained) : 0;
       const event: XPEvent = {
         id: crypto.randomUUID(),
         type,
-        xpGained,
+        xpGained: gained,
         description,
         createdAt: Date.now(),
       };
 
       await idb.put("xp_events", event);
 
-      if (reputation) {
-        const newXp = reputation.xp + xpGained;
+      {
+        const current = await loadReputation();
+        const newXp = (Number.isFinite(current.xp) ? current.xp : 0) + gained;
         const newLevel = Math.min(100, Math.floor(newXp / XP_PER_LEVEL) + 1);
-        
+
         const updatedRep: Reputation = {
-          ...reputation,
+          ...current,
           xp: newXp,
           level: newLevel,
         };
@@ -63,7 +79,7 @@ export function useReputation() {
         if (type === "check_in") updatedRep.totalCheckIns++;
 
         // Compute badges
-        const newBadges = [...reputation.badges];
+        const newBadges = [...(current.badges || [])];
         if (updatedRep.totalBrainsCreated >= 1 && !newBadges.includes("First Brain")) {
           newBadges.push("First Brain");
         }
@@ -85,26 +101,26 @@ export function useReputation() {
 
   const updateStreakMutation = useMutation({
     mutationFn: async () => {
-      if (!reputation) return;
+      const current = await loadReputation();
 
       const today = new Date().toISOString().split("T")[0];
-      if (reputation.lastActiveDate === today) return;
+      if (current.lastActiveDate === today) return;
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-      let newStreak = reputation.streak;
-      if (reputation.lastActiveDate === yesterdayStr) {
+      let newStreak = current.streak;
+      if (current.lastActiveDate === yesterdayStr) {
         newStreak += 1;
-      } else if (reputation.lastActiveDate === "") {
+      } else if (current.lastActiveDate === "") {
         newStreak = 1;
       } else {
         newStreak = 1; // Reset if missed a day
       }
 
       const updatedRep: Reputation = {
-        ...reputation,
+        ...current,
         streak: newStreak,
         lastActiveDate: today
       };
@@ -119,7 +135,7 @@ export function useReputation() {
   const mutateStreak = updateStreakMutation.mutate;
 
   useEffect(() => {
-    if (reputation && !reputation.lastActiveDate.includes(new Date().toISOString().split("T")[0])) {
+    if (reputation && reputation.lastActiveDate !== new Date().toISOString().split("T")[0]) {
       mutateStreak();
     }
   }, [reputation?.lastActiveDate, mutateStreak]);

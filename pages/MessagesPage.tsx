@@ -25,7 +25,9 @@ export function MessagesPage() {
       id: `brain-${b.id}`,
       participantIds: [b.title, "me"],
       lastMessage: `Automated push: "Post related to ${b.title} highlights new structural gating."`,
-      lastMessageAt: Date.now() - Math.floor(Math.random() * 3600000), // Random recent time
+      // Anchored to the brain's own timestamp: a random value here changed on
+      // every re-render, so the channel's "time ago" label jumped around.
+      lastMessageAt: b.created_at || Date.now(),
       unreadCount: 1,
       isBrain: true
     }));

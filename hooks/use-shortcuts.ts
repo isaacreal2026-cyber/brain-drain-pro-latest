@@ -42,7 +42,9 @@ export function useShortcuts() {
       }
 
       // Navigation sequences
-      keySequence += e.key.toLowerCase();
+      // Only the last two keystrokes can form a sequence, so unrelated typing
+      // ("x" then "gh") must not poison the buffer for a full second.
+      keySequence = (keySequence + e.key.toLowerCase()).slice(-2);
       
       clearTimeout(timeout);
       timeout = setTimeout(() => {
@@ -60,7 +62,7 @@ export function useShortcuts() {
         "gf": "/missions"
       };
 
-      if (keySequence === "?") {
+      if (e.key === "?") {
         e.preventDefault();
         toast({
           title: "Keyboard Shortcuts",

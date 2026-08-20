@@ -44,14 +44,6 @@ export function ShareBrainModal() {
   const handleImport = async () => {
     if (!decoded) return;
     const newBrainId = crypto.randomUUID();
-    const newBrain: Brain = {
-      ...decoded.brain,
-      id: newBrainId,
-      created_at: Date.now(),
-      title: decoded.brain.title.endsWith(" (imported)")
-        ? decoded.brain.title
-        : decoded.brain.title + " (imported)",
-    };
     const newNodes: Node[] = decoded.nodes.map(n => ({
       ...n,
       id: crypto.randomUUID(),
@@ -66,8 +58,22 @@ export function ShareBrainModal() {
       if (n.if_false_node_id) n.if_false_node_id = oldToNew.get(n.if_false_node_id) ?? n.if_false_node_id;
     }
 
+    const newBrain: Brain = {
+      ...decoded.brain,
+      id: newBrainId,
+      created_at: Date.now(),
+      // The root pointer has to follow the remap too, otherwise the imported
+      // brain starts on a node ID that no longer exists ("Engine Halted").
+      root_node_id: decoded.brain.root_node_id
+        ? oldToNew.get(decoded.brain.root_node_id) ?? null
+        : null,
+      title: decoded.brain.title.endsWith(" (imported)")
+        ? decoded.brain.title
+        : decoded.brain.title + " (imported)",
+    };
+
     await idb.put("brains", newBrain);
-    for (const node of newNodes) await idb.put("nodes", node);
+    await idb.putAll("nodes", newNodes);
 
     setImported(true);
     toast({ title: "Brain Imported!", description: `"${newBrain.title}" has been added to your library.` });
@@ -76,7 +82,8 @@ export function ShareBrainModal() {
 
   if (!decoded) return null;
 
-  const tags = decoded.brain.category.split(",").map(t => t.trim()).filter(Boolean);
+  // A shared payload may omit optional metadata; never let that crash the app.
+  const tags = (decoded.brain.category || "").split(",").map(t => t.trim()).filter(Boolean);
   const qCount = decoded.nodes.filter(n => n.node_type === "question").length;
   const oCount = decoded.nodes.filter(n => n.node_type === "outcome").length;
 

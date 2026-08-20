@@ -36,76 +36,6 @@ export function CommentThread({ postId }: CommentThreadProps) {
     setReplyToId(null);
   };
 
-  const CommentNode = ({ node, depth = 0 }: { node: CommentWithChildren; depth?: number }) => {
-    const isReplying = replyToId === node.id;
-    const maxDepth = 3;
-    const paddingLeft = Math.min(depth, maxDepth) * 1.5;
-
-    return (
-      <div className="flex flex-col gap-2 mt-4" style={{ paddingLeft: `${paddingLeft}rem` }}>
-        <div className="flex gap-3">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="text-xs bg-primary/20 text-primary">
-              {node.authorName.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-1">
-            <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-sm">{node.authorName}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(node.createdAt, { addSuffix: true })}
-              </span>
-            </div>
-            <p className="text-sm whitespace-pre-wrap">{node.content}</p>
-            <div className="flex items-center gap-4 pt-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 px-2 gap-1 text-muted-foreground hover:text-destructive text-xs"
-                onClick={() => reactToComment({ id: node.id, type: "love", postId })}
-              >
-                <Heart className="w-3 h-3" />
-                {node.reactions?.love || 0}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 px-2 gap-1 text-muted-foreground text-xs"
-                onClick={() => setReplyToId(isReplying ? null : node.id)}
-              >
-                <Reply className="w-3 h-3" />
-                Reply
-              </Button>
-            </div>
-            
-            {isReplying && (
-              <form onSubmit={(e) => handleSubmit(e, node.id)} className="mt-2 flex gap-2">
-                <Textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write a reply..."
-                  className="min-h-[60px] text-sm resize-none"
-                  autoFocus
-                />
-                <Button type="submit" size="sm" className="self-end" disabled={!content.trim()}>
-                  Reply
-                </Button>
-              </form>
-            )}
-          </div>
-        </div>
-        
-        {node.children.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {node.children.map(child => (
-              <CommentNode key={child.id} node={child} depth={depth + 1} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="pt-4 border-t border-border/50">
       <form onSubmit={(e) => handleSubmit(e, null)} className="flex gap-3 mb-6">
@@ -131,10 +61,128 @@ export function CommentThread({ postId }: CommentThreadProps) {
           <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first to start the conversation!</p>
         ) : (
           commentTree.map(node => (
-            <CommentNode key={node.id} node={node} />
+            <CommentNode
+              key={node.id}
+              node={node}
+              postId={postId}
+              replyToId={replyToId}
+              setReplyToId={setReplyToId}
+              content={content}
+              setContent={setContent}
+              onReact={reactToComment}
+              onSubmit={handleSubmit}
+            />
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+interface CommentNodeProps {
+  node: CommentWithChildren;
+  depth?: number;
+  postId: string;
+  replyToId: string | null;
+  setReplyToId: (id: string | null) => void;
+  content: string;
+  setContent: (value: string) => void;
+  onReact: (input: { id: string; type: string; postId: string }) => void;
+  onSubmit: (e: React.FormEvent, parentId: string | null) => void;
+}
+
+/**
+ * Declared at module scope on purpose: when this lived inside CommentThread a
+ * new component type was created on every render, so React remounted the whole
+ * thread and the reply box lost focus after each keystroke.
+ */
+function CommentNode({
+  node,
+  depth = 0,
+  postId,
+  replyToId,
+  setReplyToId,
+  content,
+  setContent,
+  onReact,
+  onSubmit,
+}: CommentNodeProps) {
+  const isReplying = replyToId === node.id;
+  const maxDepth = 3;
+  const paddingLeft = Math.min(depth, maxDepth) * 1.5;
+
+  return (
+    <div className="flex flex-col gap-2 mt-4" style={{ paddingLeft: `${paddingLeft}rem` }}>
+      <div className="flex gap-3">
+        <Avatar className="w-8 h-8">
+          <AvatarFallback className="text-xs bg-primary/20 text-primary">
+            {node.authorName.substring(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-1">
+          <div className="flex items-baseline gap-2">
+            <span className="font-semibold text-sm">{node.authorName}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(node.createdAt, { addSuffix: true })}
+            </span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap">{node.content}</p>
+          <div className="flex items-center gap-4 pt-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 px-2 gap-1 text-muted-foreground hover:text-destructive text-xs"
+              onClick={() => onReact({ id: node.id, type: "love", postId })}
+            >
+              <Heart className="w-3 h-3" />
+              {node.reactions?.love || 0}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 px-2 gap-1 text-muted-foreground text-xs"
+              onClick={() => setReplyToId(isReplying ? null : node.id)}
+            >
+              <Reply className="w-3 h-3" />
+              Reply
+            </Button>
+          </div>
+
+          {isReplying && (
+            <form onSubmit={(e) => onSubmit(e, node.id)} className="mt-2 flex gap-2">
+              <Textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write a reply..."
+                className="min-h-[60px] text-sm resize-none"
+                autoFocus
+              />
+              <Button type="submit" size="sm" className="self-end" disabled={!content.trim()}>
+                Reply
+              </Button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {node.children.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {node.children.map(child => (
+            <CommentNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              postId={postId}
+              replyToId={replyToId}
+              setReplyToId={setReplyToId}
+              content={content}
+              setContent={setContent}
+              onReact={onReact}
+              onSubmit={onSubmit}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

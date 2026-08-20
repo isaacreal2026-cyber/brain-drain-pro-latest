@@ -210,6 +210,7 @@ export function Dashboard() {
         onLaunch={launchEngine}
         onDelete={deleteBrain}
         onFork={(b) => { setIsDrawerOpen(false); openForkDialog(b); }}
+        onUpdated={refresh}
         onExport={(b) => {
           // Simple single export
           idb.getAllByIndex("nodes", "brain_id", b.id).then(nodes => {

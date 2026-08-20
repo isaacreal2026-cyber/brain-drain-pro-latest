@@ -30,7 +30,7 @@ export function NodeEditor({ nodes, setNodes, rootNodeId, setRootNodeId, brainId
   );
   // Stores the last deleted node + the exact branches that pointed to it,
   // so undo can restore both the node and its incoming links.
-  const [lastDeleted, setLastDeleted] = useState<{
+  const [, setLastDeleted] = useState<{
     node: Node;
     links: Array<{ fromId: string; branch: "if_true_node_id" | "if_false_node_id" }>;
   } | null>(null);
@@ -95,20 +95,27 @@ export function NodeEditor({ nodes, setNodes, rootNodeId, setRootNodeId, brainId
     });
 
     if (nodeToDelete) {
-      setLastDeleted({ node: nodeToDelete, links });
+      const snapshot = { node: nodeToDelete, links };
+      setLastDeleted(snapshot);
       toast({
         title: "Node deleted",
         description: "Tap undo to restore it.",
-        action: <Button size="sm" variant="outline" onClick={undoDelete} className="gap-1"><Undo2 className="w-3 h-3" /> Undo</Button>,
+        // Restore the snapshot captured here: the `lastDeleted` state set above
+        // is not visible to this render's closure yet.
+        action: <Button size="sm" variant="outline" onClick={() => restoreDeleted(snapshot)} className="gap-1"><Undo2 className="w-3 h-3" /> Undo</Button>,
         duration: 6000,
       });
     }
   };
 
-  const undoDelete = () => {
-    if (!lastDeleted) return;
-    const { node, links } = lastDeleted;
+  const restoreDeleted = (deleted: {
+    node: Node;
+    links: Array<{ fromId: string; branch: "if_true_node_id" | "if_false_node_id" }>;
+  }) => {
+    const { node, links } = deleted;
     setNodes(prev => {
+      // Ignore a repeated undo click for a node that is already back.
+      if (prev.some(n => n.id === node.id)) return prev;
       // Restore the node and re-link the exact incoming branches.
       const restored = prev.map(n => {
         const match = links.find(l => l.fromId === n.id);

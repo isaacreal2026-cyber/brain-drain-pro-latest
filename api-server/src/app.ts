@@ -52,7 +52,12 @@ app.use(
         callback(null, true);
         return;
       }
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // Tag the rejection so the error handler answers 403 instead of 500.
+      const error = Object.assign(
+        new Error(`Origin ${origin} not allowed by CORS`),
+        { status: 403 },
+      );
+      callback(error);
     },
   }),
 );

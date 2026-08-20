@@ -235,8 +235,7 @@ export function CommunityPage() {
       <Tabs defaultValue="connections" className="w-full">
         <TabsList aria-label="Community sections" className="mb-6 grid w-full grid-cols-2 md:grid-cols-4 max-w-3xl mx-auto">
           <TabsTrigger value="civilization" className="gap-2"><Users className="w-4 h-4"/> Civilization</TabsTrigger>
-          <TabsTrigger value="connections" className="gap-2 hidden md:flex"><Network className="w-4 h-4"/> Purpose-Based</TabsTrigger>
-          <TabsTrigger value="connections" className="gap-2 md:hidden"><Network className="w-4 h-4"/> Purpose</TabsTrigger>
+          <TabsTrigger value="connections" className="gap-2"><Network className="w-4 h-4"/> <span className="hidden md:inline">Purpose-Based</span><span className="md:hidden">Purpose</span></TabsTrigger>
           <TabsTrigger value="mentor" className="gap-2"><Handshake className="w-4 h-4"/> Mentor</TabsTrigger>
           <TabsTrigger value="leaderboard" className="gap-2"><Award className="w-4 h-4"/> Leaderboard</TabsTrigger>
         </TabsList>

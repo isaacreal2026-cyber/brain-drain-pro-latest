@@ -28,9 +28,10 @@ interface BrainDrawerProps {
   onDelete: (brainId: string) => void;
   onExport: (brain: Brain) => void;
   onFork?: (brain: Brain) => void;
+  onUpdated?: () => void;
 }
 
-export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport }: BrainDrawerProps) {
+export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport, onUpdated }: BrainDrawerProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isBranchManagerOpen, setIsBranchManagerOpen] = useState(false);
@@ -44,6 +45,9 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
   useEffect(() => {
     if (brain && isOpen) {
       idb.getAllByIndex<Node>("nodes", "brain_id", brain.id).then(setNodes);
+      // Reflect the persisted favorite flag; the star used to start empty on
+      // every open regardless of the brain's real state.
+      setIsStarred(Boolean(brain.isFavorite));
     }
   }, [brain, isOpen]);
 
@@ -79,11 +83,28 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
     }
   };
 
-  const toggleStar = () => {
-    setIsStarred(!isStarred);
+  const toggleStar = async () => {
+    const nextStarred = !isStarred;
+    setIsStarred(nextStarred);
+    try {
+      // Persist it — starring here previously only changed local component
+      // state, so the favorite was lost as soon as the drawer closed.
+      const stored = (await idb.get<Brain>("brains", brain.id)) || brain;
+      await idb.put("brains", { ...stored, isFavorite: nextStarred });
+      onUpdated?.();
+    } catch (error) {
+      console.error("Failed to update favorite", error);
+      setIsStarred(!nextStarred);
+      toast({
+        title: "Could not update favorite",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     toast({
-      title: !isStarred ? "Starred" : "Unstarred",
-      description: !isStarred ? `Added ${brain.title} to your favorites.` : `Removed ${brain.title} from your favorites.`
+      title: nextStarred ? "Starred" : "Unstarred",
+      description: nextStarred ? `Added ${brain.title} to your favorites.` : `Removed ${brain.title} from your favorites.`
     });
   };
 

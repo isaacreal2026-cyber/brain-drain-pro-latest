@@ -29,6 +29,22 @@ function getLevelTitle(level: number) {
   return "Legend";
 }
 
+/**
+ * Deterministic pseudo-random value for placeholder stats of other users.
+ * Math.random() re-rolled on every render, so follower counts and levels
+ * visibly flickered while the page was open.
+ */
+function seededValue(seed: string, salt: string, min: number, max: number) {
+  const input = `${seed}:${salt}`;
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const normalized = (hash >>> 0) / 4294967295;
+  return min + Math.floor(normalized * (max - min + 1));
+}
+
 // Mock contribution data generator
 const generateContributionData = () => {
   const weeks = [];
@@ -56,7 +72,7 @@ export function ProfilePage() {
   const [statusEmoji, setStatusEmoji] = useState("😎");
   const [statusMessage, setStatusMessage] = useState("Building things");
   const [activitySearch, setActivitySearch] = useState("");
-  const [contributionData, setContributionData] = useState<any[]>(generateContributionData());
+  const [contributionData, setContributionData] = useState<any[]>(() => generateContributionData());
   const [totalContributions, setTotalContributions] = useState(0);
   const [selectedDayData, setSelectedDayData] = useState<any | null>(null);
 
@@ -140,8 +156,8 @@ export function ProfilePage() {
     username: `@user_${targetUserId?.substring(0, 5) || "anon"}`,
     displayName: `User ${targetUserId?.substring(0, 5) || "Anon"}`,
     bio: "A fellow knowledge explorer in the network.",
-    followerCount: Math.floor(Math.random() * 500) + 10,
-    followingCount: Math.floor(Math.random() * 200) + 5
+    followerCount: seededValue(targetUserId || "anon", "followers", 10, 509),
+    followingCount: seededValue(targetUserId || "anon", "following", 5, 204)
   };
 
   const handleAction = (actionName: string) => {
@@ -203,8 +219,8 @@ export function ProfilePage() {
   const currentRep = reputation || {
     id: "me",
     xp: 0,
-    level: isCurrentUser ? 1 : Math.floor(Math.random() * 20) + 5,
-    streak: isCurrentUser ? 0 : Math.floor(Math.random() * 10),
+    level: isCurrentUser ? 1 : seededValue(targetUserId || "anon", "level", 5, 24),
+    streak: isCurrentUser ? 0 : seededValue(targetUserId || "anon", "streak", 0, 9),
     lastActiveDate: "",
     totalMissionsCompleted: 0,
     totalBrainsCreated: 0,

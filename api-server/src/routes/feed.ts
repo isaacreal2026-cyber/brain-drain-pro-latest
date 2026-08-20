@@ -94,9 +94,18 @@ router.get("/feed", optionalAuth, async (req, res) => {
       const upvotes = postReactions.filter((r) => r.reaction_type === "upvote").length;
       const downvotes = postReactions.filter((r) => r.reaction_type === "downvote").length;
       const reposts = postReactions.filter((r) => r.reaction_type === "repost").length;
-      const myReaction = currentUserId
-        ? postReactions.find((r) => r.user_id === currentUserId)?.reaction_type
-        : undefined;
+      // A user can hold several reactions on one post (e.g. an upvote AND a
+      // repost). Returning only the first one made the client drop the vote
+      // highlight at random, so every reaction of theirs is reported.
+      const myReactionTypes = currentUserId
+        ? Array.from(
+            new Set(
+              postReactions
+                .filter((r) => r.user_id === currentUserId)
+                .map((r) => r.reaction_type),
+            ),
+          )
+        : [];
 
       return {
         id: row.id,
@@ -116,8 +125,10 @@ router.get("/feed", optionalAuth, async (req, res) => {
         },
         commentCount: row.comment_count || 0,
         userReactions:
-          myReaction && currentUserId
-            ? { [myReaction]: [currentUserId] }
+          currentUserId && myReactionTypes.length > 0
+            ? Object.fromEntries(
+                myReactionTypes.map((type) => [type, [currentUserId]]),
+              )
             : undefined,
         authorName: row.author?.display_name || "Anonymous",
         authorAvatar: row.author?.avatar_url,

@@ -120,6 +120,19 @@ export function MissionsPage() {
   const selectedMission = missions.find(m => m.id === selectedMissionId);
   const selectedMilestones = milestones.filter(m => m.missionId === selectedMissionId).sort((a, b) => a.order - b.order);
 
+  // An empty/invalid XP field used to produce NaN, which then poisoned the
+  // stored reputation total once the mission was completed.
+  const parseXpReward = (value: string) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  };
+
+  const parseTargetDate = (value: string) => {
+    if (!value) return undefined;
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? undefined : time;
+  };
+
   const handleCreate = async () => {
     if (!title.trim()) return;
     const validMilestones = newMilestones.filter(m => m.trim() !== "");
@@ -128,8 +141,8 @@ export function MissionsPage() {
       description,
       category,
       status: "active",
-      targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
-      xpReward: parseInt(xpReward, 10),
+      targetDate: parseTargetDate(targetDate),
+      xpReward: parseXpReward(xpReward),
       milestones: validMilestones
     });
     setIsNewOpen(false);
@@ -144,6 +157,12 @@ export function MissionsPage() {
   const handleDeleteConfirm = async () => {
     if (!selectedMissionId) return;
     await idb.delete("missions", selectedMissionId);
+    // Remove the mission's milestones too, otherwise they linger in storage
+    // forever and are counted by future progress calculations.
+    const orphanMilestoneIds = milestones
+      .filter(m => m.missionId === selectedMissionId)
+      .map(m => m.id);
+    await idb.deleteAll("milestones", orphanMilestoneIds);
     setSelectedMissionId(null);
     refresh();
   };
@@ -154,8 +173,8 @@ export function MissionsPage() {
       title,
       description,
       category,
-      targetDate: targetDate ? new Date(targetDate).getTime() : undefined,
-      xpReward: parseInt(xpReward, 10),
+      targetDate: parseTargetDate(targetDate),
+      xpReward: parseXpReward(xpReward),
     });
     setIsEditOpen(false);
   };

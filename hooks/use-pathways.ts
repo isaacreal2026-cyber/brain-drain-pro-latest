@@ -30,7 +30,9 @@ export function usePathways() {
 
   const forkPathwayMutation = useMutation({
     mutationFn: async ({ id, newTitle, newDesc }: { id: string, newTitle: string, newDesc: string }) => {
-      const original = pathways.find(p => p.id === id);
+      // Read the source of truth instead of the cached query data so a fork
+      // made right after another edit cannot resurrect stale fields/counters.
+      const original = await idb.get<Pathway>("pathways", id);
       if (!original) return;
 
       const forkedPathway: Pathway = {
@@ -45,7 +47,7 @@ export function usePathways() {
 
       const updatedOriginal: Pathway = {
         ...original,
-        forkCount: original.forkCount + 1,
+        forkCount: (original.forkCount || 0) + 1,
       };
 
       await Promise.all([

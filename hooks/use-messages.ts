@@ -14,12 +14,25 @@ export function useMessages(activeConversationId?: string) {
 
   const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
     queryKey: [STORES.CONVERSATIONS],
-    queryFn: () => idb.getAll<Conversation>(STORES.CONVERSATIONS),
+    // IndexedDB returns records in primary-key order (random UUIDs), so the
+    // list has to be ordered explicitly — most recent conversation first.
+    queryFn: async () =>
+      (await idb.getAll<Conversation>(STORES.CONVERSATIONS)).sort(
+        (a, b) => b.lastMessageAt - a.lastMessageAt,
+      ),
   });
 
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: [STORES.MESSAGES, activeConversationId],
-    queryFn: () => idb.getAllByIndex<Message>(STORES.MESSAGES, "conversationId", activeConversationId as string),
+    // Chat bubbles must read oldest → newest; key order would shuffle them.
+    queryFn: async () =>
+      (
+        await idb.getAllByIndex<Message>(
+          STORES.MESSAGES,
+          "conversationId",
+          activeConversationId as string,
+        )
+      ).sort((a, b) => a.createdAt - b.createdAt),
     enabled: Boolean(activeConversationId),
   });
 
