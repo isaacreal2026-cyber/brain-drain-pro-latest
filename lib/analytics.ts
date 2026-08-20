@@ -218,5 +218,9 @@ export async function trackEvent(type: AnalyticsEventType, payload?: Record<stri
 }
 
 export async function getAnalyticsEvents() {
-  return idb.getAll<AnalyticsEvent>(STORE);
+  const events = await idb.getAll<AnalyticsEvent>(STORE);
+  // IndexedDB returns rows in primary-key order and the keys are random
+  // UUIDs, so the array was NOT chronological. Ranking helpers that take the
+  // "most recent" events with slice(-N) were reading arbitrary ones.
+  return events.sort((a, b) => a.createdAt - b.createdAt);
 }

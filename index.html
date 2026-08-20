@@ -33,6 +33,9 @@
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-icon.png" />
+    <!-- Web app manifest: the app registers a service worker and ships the
+         iOS web-app meta tags, but without this it could not be installed. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <!-- Load Inter without blocking first paint. Falls back to system fonts
          until the stylesheet applies. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCommunities } from "@/hooks/use-communities";
 import { useReputation } from "@/hooks/use-reputation";
 import { idb } from "@/lib/db";
+import { toggleCheckinVote, type CheckinVoteDirection } from "@/lib/checkin-votes";
 import { CircleCheckIn } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,32 +59,10 @@ function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
   const hasUpvoted = Boolean(c.upvotedBy?.includes(currentUserId));
   const hasDownvoted = Boolean(c.downvotedBy?.includes(currentUserId));
 
-  /**
-   * Votes are per user and mutually exclusive, like everywhere else in the
-   * app. Before this they just incremented forever on every click.
-   */
-  const handleVote = (direction: "up" | "down") => {
-    const upvotedBy: string[] = [...(c.upvotedBy || [])];
-    const downvotedBy: string[] = [...(c.downvotedBy || [])];
-    const target = direction === "up" ? upvotedBy : downvotedBy;
-    const opposite = direction === "up" ? downvotedBy : upvotedBy;
-
-    const index = target.indexOf(currentUserId);
-    if (index >= 0) {
-      target.splice(index, 1);
-    } else {
-      target.push(currentUserId);
-      const oppositeIndex = opposite.indexOf(currentUserId);
-      if (oppositeIndex >= 0) opposite.splice(oppositeIndex, 1);
-    }
-
-    updateCheckin({
-      ...c,
-      upvotedBy,
-      downvotedBy,
-      upvotes: upvotedBy.length,
-      downvotes: downvotedBy.length,
-    });
+  // Votes are per user and mutually exclusive, like everywhere else in the
+  // app. Before this they just incremented forever on every click.
+  const handleVote = (direction: CheckinVoteDirection) => {
+    updateCheckin(toggleCheckinVote(c, direction, currentUserId));
   };
 
   const handleReply = () => {

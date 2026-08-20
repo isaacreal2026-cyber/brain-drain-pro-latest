@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { idb } from "@/lib/db";
 import { trackEvent } from "@/lib/analytics";
 import { Comment, Post } from "@/lib/types";
+import { toggleCommentReaction } from "@/lib/comment-reactions";
 
 const STORE = "comments";
 
@@ -92,26 +93,13 @@ export function useComments(postId?: string) {
       const comment = await idb.get<Comment>(STORE, id);
       if (comment) {
         // Reactions toggle per user instead of incrementing forever.
-        const reactions = { ...comment.reactions };
-        const userReactions = { ...(comment.userReactions || {}) };
-        const reactors = [...(userReactions[type] || [])];
-        const alreadyReacted = reactors.includes(userId);
-
-        if (alreadyReacted) {
-          reactors.splice(reactors.indexOf(userId), 1);
-          reactions[type] = Math.max(0, (reactions[type] || 0) - 1);
-        } else {
-          reactors.push(userId);
-          reactions[type] = (reactions[type] || 0) + 1;
-        }
-        userReactions[type] = reactors;
-
-        await idb.put(STORE, { ...comment, reactions, userReactions });
+        const result = toggleCommentReaction(comment, type, userId);
+        await idb.put(STORE, result.comment);
         await trackEvent("comment_reaction", {
           postId: targetPostId,
           commentId: id,
           reactionType: type,
-          active: !alreadyReacted,
+          active: result.active,
         });
       }
     },

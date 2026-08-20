@@ -213,25 +213,43 @@ function Router() {
 
 function App() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const registerSW = () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((registration) => {
-            console.log("ServiceWorker registered with scope: ", registration.scope);
-          })
-          .catch((err) => {
-            console.error("ServiceWorker registration failed: ", err);
-          });
-      };
+    if (!("serviceWorker" in navigator)) return;
 
-      if (document.readyState === "complete") {
-        registerSW();
-      } else {
-        window.addEventListener("load", registerSW);
-        return () => window.removeEventListener("load", registerSW);
+    // In development the worker's cache-first strategy would serve stale
+    // modules after an edit, so it is only registered for production builds.
+    // Any worker left over from a previous run is removed here as well.
+    if (!import.meta.env.PROD) {
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) void registration.unregister();
+      });
+      if ("caches" in window) {
+        void caches.keys().then((keys) => {
+          for (const key of keys) {
+            if (key.startsWith("brain-builder-")) void caches.delete(key);
+          }
+        });
       }
+      return;
     }
+
+    const registerSW = () => {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((registration) => {
+          console.log("ServiceWorker registered with scope: ", registration.scope);
+        })
+        .catch((err) => {
+          console.error("ServiceWorker registration failed: ", err);
+        });
+    };
+
+    if (document.readyState === "complete") {
+      registerSW();
+      return;
+    }
+
+    window.addEventListener("load", registerSW);
+    return () => window.removeEventListener("load", registerSW);
   }, []);
 
   return (

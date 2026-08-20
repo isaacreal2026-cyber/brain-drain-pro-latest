@@ -95,7 +95,15 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => cached);
+        // Nothing was cached in this branch, so returning `cached` here handed
+        // `undefined` back to respondWith. Answer with a real error response.
+        .catch(
+          () =>
+            new Response("", {
+              status: 504,
+              statusText: "Offline and not cached",
+            }),
+        );
     }),
   );
 });
