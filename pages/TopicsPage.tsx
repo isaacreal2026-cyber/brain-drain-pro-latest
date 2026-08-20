@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 const POPULAR_CATEGORIES = ["TensorFlow", "PyTorch", "JAX", "Keras", "Scikit-Learn"];
 
 export function TopicsPage() {
-  const { topics, isLoading, addTopic } = useTopics();
+  const { topics, isLoading, addTopic, toggleFollowTopic } = useTopics();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all"); // "all", "followed", "unfollowed"
@@ -51,11 +51,9 @@ export function TopicsPage() {
 
   const handleToggleFollow = async (topic: any) => {
     const isNowFollowed = !topic.isFollowed;
-    await addTopic({
-      ...topic,
-      isFollowed: isNowFollowed,
-      followerCount: topic.followerCount + (isNowFollowed ? 1 : -1)
-    });
+    // Use the dedicated follow mutation: addTopic re-published the topic to
+    // the API on every toggle.
+    await toggleFollowTopic(topic.id);
     toast({
       title: isNowFollowed ? "Following Topic" : "Unfollowed Topic",
       description: isNowFollowed ? `You are now following ${topic.name}` : `You are no longer following ${topic.name}`,

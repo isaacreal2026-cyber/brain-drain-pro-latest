@@ -74,6 +74,7 @@ export function ProfilePage() {
   const [activitySearch, setActivitySearch] = useState("");
   const [contributionData, setContributionData] = useState<any[]>(() => generateContributionData());
   const [totalContributions, setTotalContributions] = useState(0);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(10);
   const [selectedDayData, setSelectedDayData] = useState<any | null>(null);
 
   const searchParams = new URLSearchParams(window.location.search);
@@ -167,6 +168,30 @@ export function ProfilePage() {
     })
   };
 
+  const isFollowingUser = Boolean(
+    targetUserId && profile?.followingIds?.includes(targetUserId),
+  );
+
+  /** Follow/unfollow persists on the signed-in profile record. */
+  const handleToggleFollowUser = async () => {
+    if (!profile || !targetUserId) return;
+    const following = profile.followingIds || [];
+    const isNowFollowing = !following.includes(targetUserId);
+    await updateProfile({
+      ...profile,
+      followingIds: isNowFollowing
+        ? [...following, targetUserId]
+        : following.filter((id) => id !== targetUserId),
+      followingCount: Math.max(0, (profile.followingCount || 0) + (isNowFollowing ? 1 : -1)),
+    });
+    toast({
+      title: isNowFollowing ? "Following" : "Unfollowed",
+      description: isNowFollowing
+        ? `You are now following ${currentProfile.displayName}.`
+        : `You no longer follow ${currentProfile.displayName}.`,
+    });
+  };
+
   const copyText = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -194,6 +219,17 @@ export function ProfilePage() {
       description: copied ? "Profile link has been copied to your clipboard." : "Clipboard access was blocked by your browser.",
       variant: copied ? "default" : "destructive",
     })
+  };
+
+  const handleInviteOthers = async () => {
+    const copied = await copyText(`${window.location.origin}/`);
+    toast({
+      title: copied ? "Invite link copied" : "Copy unavailable",
+      description: copied
+        ? "Share this link so others can join you on Brain Drain."
+        : "Clipboard access was blocked by your browser.",
+      variant: copied ? "default" : "destructive",
+    });
   };
 
   const handleExternalShare = async () => {
@@ -227,6 +263,16 @@ export function ProfilePage() {
     totalCheckIns: 0,
     badges: []
   };
+
+  // The activity search box and "Load More" button were previously inert.
+  const activityQuery = activitySearch.trim().toLowerCase();
+  const filteredXpEvents = activityQuery
+    ? xpEvents.filter(event =>
+        event.description.toLowerCase().includes(activityQuery) ||
+        event.type.toLowerCase().includes(activityQuery),
+      )
+    : xpEvents;
+  const visibleXpEvents = filteredXpEvents.slice(0, visibleActivityCount);
 
   const activeMissions = missions.filter(m => m.status === "active");
   const xpForNextLevel = 200;
@@ -295,11 +341,12 @@ export function ProfilePage() {
               </Button>
             ) : (
               <Button 
-                variant="default" 
+                variant={isFollowingUser ? "secondary" : "default"}
+                aria-pressed={isFollowingUser}
                 className="font-bold rounded-full h-9 px-5 text-sm cursor-pointer"
-                onClick={() => handleAction("Follow User")}
+                onClick={() => void handleToggleFollowUser()}
               >
-                Follow
+                {isFollowingUser ? "Following" : "Follow"}
               </Button>
             )}
           </div>
@@ -412,8 +459,8 @@ export function ProfilePage() {
                 <Button className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer" variant="default" onClick={() => setLocation("/messages")}>
                   <MessageSquare className="w-3.5 h-3.5" /> DM
                 </Button>
-                <Button className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer" variant="outline" onClick={() => handleAction("Follow User")}>
-                  <UserPlus className="w-3.5 h-3.5" /> Follow
+                <Button className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer" variant="outline" aria-pressed={isFollowingUser} onClick={() => void handleToggleFollowUser()}>
+                  <UserPlus className="w-3.5 h-3.5" /> {isFollowingUser ? "Following" : "Follow"}
                 </Button>
               </>
             )}
@@ -421,7 +468,7 @@ export function ProfilePage() {
             <Button className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer" variant="outline" onClick={() => setIsShareModalOpen(true)}>
               <Share2 className="w-3.5 h-3.5" /> Share Profile
             </Button>
-            <Button variant="outline" size="icon" className="rounded-full shrink-0 w-8 h-8 cursor-pointer" onClick={() => handleAction("Invite Others")}>
+            <Button variant="outline" size="icon" aria-label="Invite others" className="rounded-full shrink-0 w-8 h-8 cursor-pointer" onClick={() => void handleInviteOthers()}>
               <UserPlus className="w-4 h-4" />
             </Button>
           </div>
@@ -783,14 +830,14 @@ export function ProfilePage() {
             </div>
           </div>
           
-          {xpEvents.length === 0 ? (
+          {filteredXpEvents.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground border-b">
               <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No activity yet.</p>
             </div>
           ) : (
             <div className="divide-y">
-              {xpEvents.map(event => (
+              {visibleXpEvents.map(event => (
                 <div key={event.id} className="p-6 flex items-start gap-4 hover:bg-accent/5 transition-colors cursor-pointer" onClick={() => handleAction("View Activity Details")}>
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <Trophy className="w-5 h-5 text-primary" />
@@ -806,9 +853,17 @@ export function ProfilePage() {
                   </div>
                 </div>
               ))}
-              <div className="p-6 text-center">
-                <Button variant="outline" className="rounded-full">Load More Activity</Button>
-              </div>
+              {visibleXpEvents.length < filteredXpEvents.length && (
+                <div className="p-6 text-center">
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setVisibleActivityCount((count) => count + 10)}
+                  >
+                    Load More Activity
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

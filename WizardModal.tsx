@@ -124,7 +124,9 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
       category,
       description,
       created_at: Date.now(),
-      root_node_id: effectiveRoot
+      root_node_id: effectiveRoot,
+      // Factors entered in step 2 used to be discarded on save.
+      ...(traits.length > 0 ? { traits } : {}),
     };
 
     try {

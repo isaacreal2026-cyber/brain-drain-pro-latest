@@ -1,18 +1,35 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Hash, Users, ArrowLeft, ArrowBigDown, ArrowBigUp, MessageSquare, Share2 } from "lucide-react";
 import { useTopics } from "@/hooks/use-topics";
 import { useSocial } from "@/hooks/use-social";
-import { getPostDownvoteCount, getPostUpvoteCount, Topic, Post } from "@/lib/types";
+import { useCommunities } from "@/hooks/use-communities";
+import { useProfile } from "@/hooks/use-profile";
+import { Brain, getPostDownvoteCount, getPostUpvoteCount, Topic, Post } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast";
+import { CommentThreadModal } from "@/components/feed/CommentThreadModal";
+import { idb } from "@/lib/db";
+import { trackEvent } from "@/lib/analytics";
+
+const PostCreator = lazy(() =>
+  import("@/components/feed/PostCreator").then((m) => ({ default: m.PostCreator })),
+);
+const BrainChatRuntime = lazy(() =>
+  import("@/components/runtime/BrainChatRuntime").then((m) => ({ default: m.BrainChatRuntime })),
+);
 
 export function TopicDetailPage({ params }: { params: { id: string } }) {
-  const { topics, isLoading: topicsLoading } = useTopics();
-  const { posts, isLoading: postsLoading, reactToPost } = useSocial();
+  const { topics, isLoading: topicsLoading, toggleFollowTopic } = useTopics();
+  const { posts, isLoading: postsLoading, reactToPost, addPost } = useSocial();
+  const { communities } = useCommunities();
+  const { profile } = useProfile();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [topicPosts, setTopicPosts] = useState<Post[]>([]);
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+  const [activeBrain, setActiveBrain] = useState<Brain | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -24,25 +41,58 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (!postsLoading && topic) {
-      setTopicPosts(posts.filter(p => p.topicId === topic.id));
+      const hidden = new Set(profile?.hiddenPostIds || []);
+      setTopicPosts(posts.filter(p => p.topicId === topic.id && !hidden.has(p.id)));
     }
-  }, [posts, topic, postsLoading]);
+  }, [posts, topic, postsLoading, profile?.hiddenPostIds]);
 
-  const handleAction = (action: string) => {
-    toast({
-      title: action,
-      description: `The ${action.toLowerCase()} action has been initiated.`,
-    });
-  };
-
-  const handleToggleFollow = () => {
+  const handleToggleFollow = async () => {
     if (!topic) return;
     const isNowFollowed = !topic.isFollowed;
-    setTopic({ ...topic, isFollowed: isNowFollowed, followerCount: topic.followerCount + (isNowFollowed ? 1 : -1) });
+    await toggleFollowTopic(topic.id);
     toast({
       title: isNowFollowed ? "Following Topic" : "Unfollowed Topic",
       description: isNowFollowed ? `You are now following ${topic.name}` : `You are no longer following ${topic.name}`,
     });
+  };
+
+  /** Opens the attached brain of a post in the interactive runtime. */
+  const handleLoadBrain = async (brainId: string) => {
+    try {
+      const brain = await idb.get<Brain>("brains", brainId);
+      if (!brain) {
+        toast({ title: "Brain Not Found", description: "This brain module could not be loaded.", variant: "destructive" });
+        return;
+      }
+      setActiveBrain(brain);
+    } catch {
+      toast({ title: "Error", description: "Could not load the brain module.", variant: "destructive" });
+    }
+  };
+
+  const handleSharePost = async (post: Post) => {
+    const url = `${window.location.origin}/?postId=${encodeURIComponent(post.id)}`;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = url;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    toast({
+      title: copied ? "Link copied" : "Copy unavailable",
+      description: copied ? "Post link copied to clipboard." : "Clipboard access was blocked by your browser.",
+      variant: copied ? "default" : "destructive",
+    });
+    if (copied) void trackEvent("post_share", { postId: post.id, method: "copy" });
   };
 
   if (topicsLoading || postsLoading) {
@@ -89,7 +139,7 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
           <Button variant={topic.isFollowed ? "secondary" : "default"} aria-pressed={topic.isFollowed} className="w-full sm:w-auto px-8" onClick={handleToggleFollow}>
             {topic.isFollowed ? "Following" : "Follow"}
           </Button>
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleAction("Start a Discussion")}>Start a Discussion</Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsCreatorOpen(true)}>Start a Discussion</Button>
         </div>
       </div>
 
@@ -121,7 +171,7 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
                   )}
                   
                   {post.brainId && (
-                    <div className="mb-4 p-3 rounded-lg border bg-card/50 flex items-center gap-3 cursor-pointer hover:bg-card transition-colors" onClick={() => handleAction("Load Brain")}>
+                    <div className="mb-4 p-3 rounded-lg border bg-card/50 flex items-center gap-3 cursor-pointer hover:bg-card transition-colors" onClick={() => void handleLoadBrain(post.brainId!)}>
                       <div className="p-2 rounded bg-primary/20 text-primary">
                         <Hash className="w-5 h-5" />
                       </div>
@@ -141,11 +191,11 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
                       <ArrowBigDown className="w-4 h-4" />
                       <span className="text-xs">Downvote {getPostDownvoteCount(post)}</span>
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-2 hover:text-primary" onClick={() => handleAction("Open Discussion")}>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-2 hover:text-primary" onClick={() => setActiveCommentPostId(post.id)}>
                       <MessageSquare className="w-4 h-4" />
                       <span className="text-xs">{post.commentCount || 0}</span>
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-2" onClick={() => handleAction("Share Post")}>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-2" onClick={() => void handleSharePost(post)}>
                       <Share2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -155,6 +205,38 @@ export function TopicDetailPage({ params }: { params: { id: string } }) {
           ))
         )}
       </div>
+
+      {isCreatorOpen && (
+        <Suspense fallback={null}>
+          <PostCreator
+            isOpen={isCreatorOpen}
+            onClose={() => setIsCreatorOpen(false)}
+            onPostCreated={async (post) => { await addPost({ ...post, topicId: topic.id }); }}
+            topics={topics}
+            communities={communities}
+            postType="question"
+          />
+        </Suspense>
+      )}
+
+      <CommentThreadModal
+        postId={activeCommentPostId || ""}
+        isOpen={Boolean(activeCommentPostId)}
+        onClose={() => setActiveCommentPostId(null)}
+        postAuthorName={
+          topicPosts.find((p) => p.id === activeCommentPostId)?.userId || "Author"
+        }
+      />
+
+      {activeBrain && (
+        <Suspense fallback={null}>
+          <BrainChatRuntime
+            brain={activeBrain}
+            isOpen={Boolean(activeBrain)}
+            onClose={() => setActiveBrain(null)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

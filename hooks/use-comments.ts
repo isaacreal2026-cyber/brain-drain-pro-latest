@@ -88,16 +88,30 @@ export function useComments(postId?: string) {
   });
 
   const { mutateAsync: reactToComment } = useMutation({
-    mutationFn: async ({ id, type, postId: targetPostId }: { id: string; type: string; postId: string }) => {
+    mutationFn: async ({ id, type, postId: targetPostId, userId = "me" }: { id: string; type: string; postId: string; userId?: string }) => {
       const comment = await idb.get<Comment>(STORE, id);
       if (comment) {
+        // Reactions toggle per user instead of incrementing forever.
         const reactions = { ...comment.reactions };
-        reactions[type] = (reactions[type] || 0) + 1;
-        await idb.put(STORE, { ...comment, reactions });
+        const userReactions = { ...(comment.userReactions || {}) };
+        const reactors = [...(userReactions[type] || [])];
+        const alreadyReacted = reactors.includes(userId);
+
+        if (alreadyReacted) {
+          reactors.splice(reactors.indexOf(userId), 1);
+          reactions[type] = Math.max(0, (reactions[type] || 0) - 1);
+        } else {
+          reactors.push(userId);
+          reactions[type] = (reactions[type] || 0) + 1;
+        }
+        userReactions[type] = reactors;
+
+        await idb.put(STORE, { ...comment, reactions, userReactions });
         await trackEvent("comment_reaction", {
           postId: targetPostId,
           commentId: id,
           reactionType: type,
+          active: !alreadyReacted,
         });
       }
     },

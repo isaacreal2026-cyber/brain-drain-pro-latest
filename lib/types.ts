@@ -37,6 +37,8 @@ export interface Brain {
   repo_status?: "private" | "public_repo";
   active_branch?: string;
   isFavorite?: boolean;
+  /** Optional factors captured in the creation wizard. */
+  traits?: string[];
 }
 
 export interface Node {
@@ -85,6 +87,8 @@ export interface Comment {
   authorName: string;
   content: string;
   reactions: Record<string, number>;
+  /** Who reacted with what, so a reaction can be taken back. */
+  userReactions?: Record<string, string[]>;
   createdAt: number;
 }
 
@@ -297,6 +301,16 @@ export interface UserProfile {
     instruments?: string[];
   };
   bookmarkedPostIds?: string[];
+  collections?: PostCollection[];
+  hiddenPostIds?: string[];
+  reportedPostIds?: string[];
+  followingIds?: string[];
+}
+
+export interface PostCollection {
+  id: string;
+  name: string;
+  postIds: string[];
 }
 
 export interface AppSettings {

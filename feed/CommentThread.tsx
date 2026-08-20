@@ -108,6 +108,7 @@ function CommentNode({
   onSubmit,
 }: CommentNodeProps) {
   const isReplying = replyToId === node.id;
+  const hasLoved = Boolean(node.userReactions?.love?.includes("me"));
   const maxDepth = 3;
   const paddingLeft = Math.min(depth, maxDepth) * 1.5;
 
@@ -131,10 +132,11 @@ function CommentNode({
             <Button 
               variant="ghost" 
               size="sm" 
-              className="h-6 px-2 gap-1 text-muted-foreground hover:text-destructive text-xs"
+              aria-pressed={hasLoved}
+              className={`h-6 px-2 gap-1 hover:text-destructive text-xs ${hasLoved ? "text-destructive" : "text-muted-foreground"}`}
               onClick={() => onReact({ id: node.id, type: "love", postId })}
             >
-              <Heart className="w-3 h-3" />
+              <Heart className={`w-3 h-3 ${hasLoved ? "fill-current" : ""}`} />
               {node.reactions?.love || 0}
             </Button>
             <Button 

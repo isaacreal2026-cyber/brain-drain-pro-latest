@@ -15,6 +15,7 @@ import { trackEvent } from "@/lib/analytics";
 import { FeedMode, rankHomeFeedPosts, rankRelatedTopics } from "@/lib/recommendations";
 import { useAnalyticsEvents } from "@/hooks/use-recommendations";
 import { useToast } from "@/hooks/use-toast";
+import { useProfile } from "@/hooks/use-profile";
 
 const NeuralGraph = lazy(() => import("@/components/NeuralGraph").then(m => ({ default: m.NeuralGraph })));
 const PostCreator = lazy(() => import("@/components/feed/PostCreator").then((module) => ({ default: module.PostCreator })));
@@ -63,6 +64,11 @@ export function HomeFeed() {
   const { topics, addTopic, refreshTopics } = useTopics();
   const { communities } = useCommunities();
   const { data: analyticsEvents = [] } = useAnalyticsEvents();
+  const { profile } = useProfile();
+  const hiddenPostIds = useMemo(
+    () => new Set(profile?.hiddenPostIds || []),
+    [profile?.hiddenPostIds],
+  );
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
@@ -286,10 +292,11 @@ export function HomeFeed() {
         {(() => {
           const searchParams = new URLSearchParams(window.location.search);
           const postIdFromUrl = searchParams.get("postId");
+          const visiblePosts = posts.filter(p => !hiddenPostIds.has(p.id));
           const allDisplayedPosts = postIdFromUrl 
             ? posts.filter(p => p.id === postIdFromUrl) 
             : rankHomeFeedPosts({
-                posts,
+                posts: visiblePosts,
                 topics,
                 events: analyticsEvents,
                 mode: activeFeed,

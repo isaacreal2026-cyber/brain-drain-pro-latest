@@ -102,12 +102,44 @@ export function useTopics() {
     },
   });
 
+  /**
+   * Follow/unfollow that actually persists both directions. The follow state
+   * used to live in component state only, so it was lost on navigation.
+   */
+  const toggleFollowTopicMutation = useMutation({
+    mutationFn: async (topicId: string) => {
+      const topic = await idb.get<Topic>("topics", topicId);
+      if (!topic) return;
+      const isNowFollowed = !topic.isFollowed;
+
+      if (isNowFollowed && env.apiBaseUrl) {
+        try {
+          const token = await getAuthToken();
+          await followTopic(topicId, token);
+        } catch (error) {
+          console.warn("Topic follow saved locally, cloud sync deferred", error);
+        }
+      }
+
+      await idb.put("topics", {
+        ...topic,
+        isFollowed: isNowFollowed,
+        followerCount: Math.max(0, (topic.followerCount || 0) + (isNowFollowed ? 1 : -1)),
+      });
+      return isNowFollowed;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["topics"] });
+    },
+  });
+
   return {
     topics,
     isLoading,
     addTopic: addTopicMutation.mutateAsync,
     reorderTopics: reorderTopicsMutation.mutateAsync,
     followTopic: followTopicMutation.mutateAsync,
+    toggleFollowTopic: toggleFollowTopicMutation.mutateAsync,
     refreshTopics: () => queryClient.invalidateQueries({ queryKey: ["topics"] }),
   };
 }

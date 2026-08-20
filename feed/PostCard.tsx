@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ArrowBigDown, ArrowBigUp, CalendarDays, MapPin, Users, MessageCircle, MoreHorizontal, BrainCircuit, Bookmark, Share, Link as LinkIcon, ExternalLink, Repeat } from "lucide-react";
-import { Brain, getPostDownvoteCount, getPostUpvoteCount, Post } from "@/lib/types";
+import { Brain, getPostDownvoteCount, getPostUpvoteCount, Post, PostCollection } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -108,12 +108,35 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
     }
   };
 
-  const handleModerationWait = (action: "Report Post" | "Hide Post") => {
-    toast({
-      title: `${action} needs backend review`,
-      description: "This shared-content action is waiting for backend moderation/safety support, so no local-only change was made.",
+  const handleReportPost = async () => {
+    if (!profile) return;
+    const reported = profile.reportedPostIds || [];
+    if (reported.includes(post.id)) {
+      toast({ title: "Already reported", description: "You have already reported this post." });
+      return;
+    }
+    await updateProfile({
+      ...profile,
+      reportedPostIds: [...reported, post.id],
+      hiddenPostIds: Array.from(new Set([...(profile.hiddenPostIds || []), post.id])),
     });
-    void trackEvent("post_moderation_waiting", { postId: post.id, action });
+    toast({
+      title: "Post reported",
+      description: "Thanks — the post is now hidden from your feed.",
+    });
+    void trackEvent("post_moderation_waiting", { postId: post.id, action: "Report Post" });
+  };
+
+  const handleHidePost = async () => {
+    if (!profile) return;
+    const hidden = profile.hiddenPostIds || [];
+    if (hidden.includes(post.id)) {
+      toast({ title: "Already hidden", description: "This post is already hidden from your feed." });
+      return;
+    }
+    await updateProfile({ ...profile, hiddenPostIds: [...hidden, post.id] });
+    toast({ title: "Post hidden", description: "You will not see this post in your feed anymore." });
+    void trackEvent("post_moderation_waiting", { postId: post.id, action: "Hide Post" });
   };
 
   const handleToggleBookmark = async () => {
@@ -150,15 +173,73 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
     setLocation(`/profile?userId=${post.userId}`);
   };
 
-  const handleSaveToCollection = () => {
-    if (newCollectionName.trim()) {
-      toast({
-        title: "Post Saved",
-        description: `Saved to new collection: ${newCollectionName}`,
-      });
-      setIsSaveModalOpen(false);
-      setNewCollectionName("");
+  // Collections live on the profile record so saved posts survive a reload.
+  const DEFAULT_COLLECTION_NAMES = ["Machine Learning", "UI Inspiration", "Read Later"];
+  const collections: PostCollection[] =
+    profile?.collections && profile.collections.length > 0
+      ? profile.collections
+      : DEFAULT_COLLECTION_NAMES.map((name) => ({
+          id: `collection-${name.toLowerCase().replace(/\s+/g, "-")}`,
+          name,
+          postIds: [],
+        }));
+
+  const persistCollections = async (next: PostCollection[]) => {
+    if (!profile) return;
+    await updateProfile({
+      ...profile,
+      collections: next,
+      bookmarkedPostIds: Array.from(new Set([...(profile.bookmarkedPostIds || []), post.id])),
+    });
+  };
+
+  const handleSaveToCollection = async () => {
+    const name = newCollectionName.trim();
+    if (!name) return;
+    if (!profile) {
+      toast({ title: "Sign in required", description: "A profile is needed to save collections.", variant: "destructive" });
+      return;
     }
+    const existing = collections.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const next = existing
+      ? collections.map((c) =>
+          c.id === existing.id
+            ? { ...c, postIds: Array.from(new Set([...c.postIds, post.id])) }
+            : c,
+        )
+      : [
+          ...collections,
+          { id: crypto.randomUUID(), name, postIds: [post.id] },
+        ];
+
+    await persistCollections(next);
+    toast({
+      title: "Post Saved",
+      description: `Saved to ${existing ? "" : "new collection: "}${name}`,
+    });
+    setIsSaveModalOpen(false);
+    setNewCollectionName("");
+  };
+
+  const handleSaveToExistingCollection = async (collection: PostCollection) => {
+    if (!profile) {
+      toast({ title: "Sign in required", description: "A profile is needed to save collections.", variant: "destructive" });
+      return;
+    }
+    if (collection.postIds.includes(post.id)) {
+      toast({ title: "Already saved", description: `This post is already in ${collection.name}.` });
+      setIsSaveModalOpen(false);
+      return;
+    }
+    const merged = collections.some((c) => c.id === collection.id)
+      ? collections.map((c) =>
+          c.id === collection.id ? { ...c, postIds: [...c.postIds, post.id] } : c,
+        )
+      : [...collections, { ...collection, postIds: [post.id] }];
+
+    await persistCollections(merged);
+    toast({ title: "Saved", description: `Added to ${collection.name}` });
+    setIsSaveModalOpen(false);
   };
 
   return (
@@ -202,8 +283,8 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                     <Bookmark className="w-4 h-4 mr-2" /> Save Post
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleModerationWait("Report Post")}>Report</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleModerationWait("Hide Post")}>Hide</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void handleReportPost()}>Report</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void handleHidePost()}>Hide</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -456,7 +537,7 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
                   value={newCollectionName}
                   onChange={(e) => setNewCollectionName(e.target.value)}
                 />
-                <Button onClick={handleSaveToCollection} disabled={!newCollectionName.trim()}>Save</Button>
+                <Button onClick={() => void handleSaveToCollection()} disabled={!newCollectionName.trim()}>Save</Button>
               </div>
             </div>
             
@@ -470,18 +551,17 @@ export function PostCard({ post, onReact, topicName, authorName = "Anonymous", a
             </div>
             
             <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2">
-              {['Machine Learning', 'UI Inspiration', 'Read Later'].map((collection) => (
+              {collections.map((collection) => (
                 <Button 
-                  key={collection} 
+                  key={collection.id} 
                   variant="outline" 
                   className="w-full justify-between"
-                  onClick={() => {
-                    toast({ title: "Saved", description: `Added to ${collection}` });
-                    setIsSaveModalOpen(false);
-                  }}
+                  onClick={() => void handleSaveToExistingCollection(collection)}
                 >
-                  <span className="flex items-center gap-2"><Bookmark className="w-4 h-4" /> {collection}</span>
-                  <span className="text-xs text-muted-foreground">Select</span>
+                  <span className="flex items-center gap-2"><Bookmark className="w-4 h-4" /> {collection.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {collection.postIds.includes(post.id) ? "Saved" : "Select"}
+                  </span>
                 </Button>
               ))}
             </div>
