@@ -40,7 +40,7 @@ export function MobileNavDrawer({
       {open && (
         <>
           <motion.div
-            className="md:hidden fixed inset-0 bg-black/70 z-[9998]"
+            className="md:hidden fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -48,7 +48,7 @@ export function MobileNavDrawer({
             aria-hidden
           />
           <motion.div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-[10000] bg-card rounded-t-3xl border-t border-border/50 p-6 pb-10 max-h-[80vh] overflow-y-auto"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-card rounded-t-3xl border-t border-border/50 p-6 pb-10 max-h-[80vh] overflow-y-auto"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
