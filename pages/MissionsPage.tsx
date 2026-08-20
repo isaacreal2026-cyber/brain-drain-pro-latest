@@ -478,7 +478,10 @@ export function MissionsPage() {
                                 <Textarea 
                                   placeholder="Add notes, reflections, or evidence of completion..." 
                                   className="min-h-[80px] bg-muted/30"
-                                  value={milestoneNotes[ms.id] || ""}
+                                  // Fall back to the persisted note: the local
+                                  // draft map is empty after a reload, so saved
+                                  // notes appeared to have been lost.
+                                  value={milestoneNotes[ms.id] ?? ms.notes ?? ""}
                                   onChange={(e) => setMilestoneNotes({...milestoneNotes, [ms.id]: e.target.value})}
                                 />
                                 <div className="flex flex-wrap gap-2">

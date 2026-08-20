@@ -64,5 +64,7 @@ export async function savePersonalityTest(user: AppUser, data: PersonalityTestDa
   }
 
   const services = await getFirestoreServices();
-  await services.setDoc(services.doc(services.db, "personality_tests", user.uid), data, { merge: true });
+  // Written as a full replacement on purpose: with { merge: true } a reset
+  // ("Retake Assessment") left every previous answer in the document.
+  await services.setDoc(services.doc(services.db, "personality_tests", user.uid), data);
 }

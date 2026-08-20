@@ -40,7 +40,12 @@ export function PersonalityTestPage() {
           if (!cancelled && data) {
             setAnswers(data.answers || {});
             if (data.isCompleted) setIsCompleted(true);
-            else setCurrentStep(Object.keys(data.answers || {}).length);
+            else {
+              // Clamp: an answer count equal to the question count used to
+              // index past the end of the array and crash the page.
+              const answered = Object.keys(data.answers || {}).length;
+              setCurrentStep(Math.min(answered, QUESTIONS.length - 1));
+            }
           }
         } catch (e) {
           console.error(e);
@@ -100,6 +105,18 @@ export function PersonalityTestPage() {
       if (q) scores[q.category] += score;
     });
 
+    // Each trait has a different number of questions, so the maximum score
+    // differs per trait. Dividing everything by a fixed 10 capped traits with
+    // a single question at 50%.
+    const maxScores = QUESTIONS.reduce<Record<string, number>>((acc, q) => {
+      acc[q.category] = (acc[q.category] || 0) + 5;
+      return acc;
+    }, {});
+    const percentFor = (trait: string, score: number) => {
+      const max = maxScores[trait] || 5;
+      return Math.max(0, Math.min(100, Math.round((score / max) * 100)));
+    };
+
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         <div className="text-center mb-8">
@@ -116,9 +133,9 @@ export function PersonalityTestPage() {
               <CardContent className="p-4 flex flex-col justify-between h-full">
                 <div className="mb-2 flex justify-between items-center">
                   <span className="font-semibold capitalize">{trait}</span>
-                  <span className="text-sm font-bold text-primary">{Math.round((score / 10) * 100)}%</span>
+                  <span className="text-sm font-bold text-primary">{percentFor(trait, score)}%</span>
                 </div>
-                <Progress value={(score / 10) * 100} className="h-2" />
+                <Progress value={percentFor(trait, score)} className="h-2" />
               </CardContent>
             </Card>
           ))}

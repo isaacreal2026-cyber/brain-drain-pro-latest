@@ -8,6 +8,15 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { idb } from "@/lib/db";
 
+/**
+ * date-fns throws "Invalid time value" on an undefined/NaN timestamp, which
+ * used to take the whole library down for brains that arrived without one.
+ */
+function formatCreatedAt(value: number | undefined) {
+  const date = new Date(value ?? NaN);
+  return Number.isNaN(date.getTime()) ? "unknown" : format(date, "yyyy-MM-dd HH:mm");
+}
+
 export function BrainCard({ brain, onClick, onFork, onUpdated }: { brain: Brain; onClick: () => void; onFork?: (brain: Brain) => void; onUpdated?: () => void }) {
   const tags = brain.category.split(",").map(t => t.trim()).filter(Boolean);
   const { toast } = useToast();
@@ -73,7 +82,7 @@ export function BrainCard({ brain, onClick, onFork, onUpdated }: { brain: Brain;
         <CardContent className="flex-1 flex flex-col justify-between">
           <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{brain.description}</p>
           <div className="text-[11px] text-muted-foreground/60 font-mono mt-auto flex justify-between">
-            <span>INIT: {format(new Date(brain.created_at), "yyyy-MM-dd HH:mm")}</span>
+            <span>INIT: {formatCreatedAt(brain.created_at)}</span>
             {brain.repo_status === "public_repo" && <span className="text-emerald-500">PUBLIC</span>}
           </div>
         </CardContent>

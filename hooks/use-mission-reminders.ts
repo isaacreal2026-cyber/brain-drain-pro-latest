@@ -26,15 +26,25 @@ export function useMissionReminders() {
       const REVIEW_INTERVAL = 4 * 60 * 60 * 1000;
 
       for (const mission of rankedActiveMissions.slice(0, 2)) {
-        const lastNotified = localStorage.getItem(`mission_notified_${mission.id}`);
-
-        if (!lastNotified || (now - parseInt(lastNotified, 10) > REVIEW_INTERVAL)) {
+        let lastNotified: string | null = null;
+        try {
+          lastNotified = localStorage.getItem(`mission_notified_${mission.id}`);
+        } catch {
+          // Storage blocked — treat the mission as never reminded.
+        }
+        const lastNotifiedAt = lastNotified ? Number(lastNotified) : NaN;
+        // A corrupt timestamp used to silence the reminder forever.
+        if (!Number.isFinite(lastNotifiedAt) || now - lastNotifiedAt > REVIEW_INTERVAL) {
           toast({
             title: `Review Period: ${mission.title}`,
             description: "Consistent progress builds pathways. Time for your review!",
             duration: 8000,
           });
-          localStorage.setItem(`mission_notified_${mission.id}`, now.toString());
+          try {
+            localStorage.setItem(`mission_notified_${mission.id}`, now.toString());
+          } catch {
+            // Ignore storage failures; the reminder simply repeats later.
+          }
           void trackEvent("mission_reminder", {
             missionId: mission.id,
             category: mission.category,

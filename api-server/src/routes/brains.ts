@@ -29,10 +29,20 @@ const BrainSchema = z.object({
   active_branch: z.string().max(120).nullable().optional(),
 });
 
+// z.coerce.boolean() turns ANY non-empty string into true, so "?mine=false"
+// used to be read as true. Parse the flag explicitly instead.
+const BooleanFlag = z
+  .union([z.boolean(), z.string()])
+  .transform((value) =>
+    typeof value === "boolean"
+      ? value
+      : ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()),
+  );
+
 const ListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
-  mine: z.coerce.boolean().default(false),
+  mine: BooleanFlag.default(false),
 });
 
 interface BrainRow {
@@ -72,6 +82,10 @@ function toClientBrain(row: BrainRow) {
     repo_status: row.repo_status,
     active_branch: row.active_branch,
     isFavorite: row.is_favorite,
+    // The client Brain model uses `created_at` (epoch ms). Sending only
+    // `createdAt` left every cloud brain without a creation date, which threw
+    // "Invalid time value" when the library tried to format it.
+    created_at: new Date(row.created_at).getTime(),
     createdAt: new Date(row.created_at).getTime(),
     isPublic: row.is_public,
   };

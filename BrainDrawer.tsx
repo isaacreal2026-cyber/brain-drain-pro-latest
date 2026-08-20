@@ -31,6 +31,12 @@ interface BrainDrawerProps {
   onUpdated?: () => void;
 }
 
+/** Guards against invalid/missing timestamps (date-fns throws on those). */
+function formatTimestamp(value: number | undefined) {
+  const date = new Date(value ?? NaN);
+  return Number.isNaN(date.getTime()) ? "unknown" : format(date, "MMM d, HH:mm");
+}
+
 export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport, onUpdated }: BrainDrawerProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -81,6 +87,31 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
       document.body.removeChild(el);
       toast({ title: "Link Copied!", description: "Share this link — anyone who opens it can import the brain instantly." });
     }
+  };
+
+  /** Actually puts the clone URL on the clipboard (it only toasted before). */
+  const copyCloneUrl = async () => {
+    const url = `https://brain-builder.com/repo/${brain.id}.git`;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = url;
+      el.setAttribute("readonly", "");
+      el.style.position = "fixed";
+      el.style.left = "-9999px";
+      document.body.appendChild(el);
+      el.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    toast(
+      copied
+        ? { title: "Copied clone URL" }
+        : { title: "Copy unavailable", description: "Clipboard access was blocked by your browser.", variant: "destructive" as const },
+    );
   };
 
   const toggleStar = async () => {
@@ -309,7 +340,7 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
                         <Label className="text-xs">Clone using URL</Label>
                         <div className="flex gap-1">
                           <Input value={`https://brain-builder.com/repo/${brain.id}.git`} readOnly className="h-8 text-xs font-mono" />
-                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => toast({ title: "Copied clone URL" })}>Copy</Button>
+                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => void copyCloneUrl()}>Copy</Button>
                         </div>
                         <div className="flex gap-2 text-[10px] text-muted-foreground font-medium">
                           <span className="hover:text-foreground cursor-pointer underline">HTTPS</span>
@@ -432,7 +463,7 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
                     <div className="bg-card border p-3 rounded-md shadow-sm opacity-90 hover:opacity-100 transition-opacity">
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-medium text-sm text-foreground">{v.message}</span>
-                        <span className="text-xs text-muted-foreground">{format(new Date(v.created_at), "MMM d, HH:mm")}</span>
+                        <span className="text-xs text-muted-foreground">{formatTimestamp(v.created_at)}</span>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">

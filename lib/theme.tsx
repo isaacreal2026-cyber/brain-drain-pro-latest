@@ -21,32 +21,52 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  // Storage can throw when cookies/site data are blocked (private mode,
+  // embedded webviews) — that must never stop the app from rendering.
+  const readStoredTheme = (): Theme | null => {
+    try {
+      return localStorage.getItem(storageKey) as Theme | null;
+    } catch {
+      return null;
+    }
+  };
+
+  const [theme, setTheme] = useState<Theme>(() => readStoredTheme() || defaultTheme);
 
   useEffect(() => {
     const root = window.document.documentElement;
 
-    root.classList.remove("light", "dark");
+    const applyTheme = (next: Theme) => {
+      root.classList.remove("light", "dark");
+      if (next === "system") {
+        root.classList.add(
+          window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+        );
+        return;
+      }
+      root.classList.add(next);
+    };
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
+    applyTheme(theme);
 
-      root.classList.add(systemTheme);
-      return;
-    }
+    if (theme !== "system") return;
 
-    root.classList.add(theme);
+    // Follow the OS while "system" is selected; previously the appearance was
+    // frozen at whatever the OS was when the page loaded.
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyTheme("system");
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
   }, [theme]);
 
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
+      try {
+        localStorage.setItem(storageKey, theme);
+      } catch {
+        // Preference cannot be persisted; keep it for this session.
+      }
       setTheme(theme);
     },
   };

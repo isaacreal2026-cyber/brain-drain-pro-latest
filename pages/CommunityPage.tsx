@@ -54,6 +54,38 @@ function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
   const [, setLocation] = useLocation();
   const mood = moodEmojis.find((m: any) => m.score === c.moodScore)?.emoji || "😐";
 
+  const currentUserId = "me";
+  const hasUpvoted = Boolean(c.upvotedBy?.includes(currentUserId));
+  const hasDownvoted = Boolean(c.downvotedBy?.includes(currentUserId));
+
+  /**
+   * Votes are per user and mutually exclusive, like everywhere else in the
+   * app. Before this they just incremented forever on every click.
+   */
+  const handleVote = (direction: "up" | "down") => {
+    const upvotedBy: string[] = [...(c.upvotedBy || [])];
+    const downvotedBy: string[] = [...(c.downvotedBy || [])];
+    const target = direction === "up" ? upvotedBy : downvotedBy;
+    const opposite = direction === "up" ? downvotedBy : upvotedBy;
+
+    const index = target.indexOf(currentUserId);
+    if (index >= 0) {
+      target.splice(index, 1);
+    } else {
+      target.push(currentUserId);
+      const oppositeIndex = opposite.indexOf(currentUserId);
+      if (oppositeIndex >= 0) opposite.splice(oppositeIndex, 1);
+    }
+
+    updateCheckin({
+      ...c,
+      upvotedBy,
+      downvotedBy,
+      upvotes: upvotedBy.length,
+      downvotes: downvotedBy.length,
+    });
+  };
+
   const handleReply = () => {
     if (replyText.trim()) {
       const newReplies = [...(c.replies || []), { id: crypto.randomUUID(), userId: "me", content: replyText, createdAt: Date.now() }];
@@ -85,10 +117,10 @@ function CheckInCard({ c, moodEmojis, updateCheckin, toast }: any) {
           {c.message || "Checked in"}
         </p>
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50 text-muted-foreground flex-wrap">
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => updateCheckin({ ...c, upvotes: (c.upvotes || 0) + 1 })}>
+          <Button variant="ghost" size="sm" aria-pressed={hasUpvoted} className={`h-6 px-2 text-[10px] gap-1 ${hasUpvoted ? "text-primary" : ""}`} onClick={() => handleVote("up")}>
             <ArrowUp className="w-3 h-3" /> {c.upvotes || 0}
           </Button>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => updateCheckin({ ...c, downvotes: (c.downvotes || 0) + 1 })}>
+          <Button variant="ghost" size="sm" aria-pressed={hasDownvoted} className={`h-6 px-2 text-[10px] gap-1 ${hasDownvoted ? "text-destructive" : ""}`} onClick={() => handleVote("down")}>
             <ArrowDown className="w-3 h-3" /> {c.downvotes || 0}
           </Button>
           <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => setReplyOpen(!replyOpen)}>

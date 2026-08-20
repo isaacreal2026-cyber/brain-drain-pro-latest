@@ -9,7 +9,7 @@ import { Reorder } from "framer-motion";
 import { Topic } from "@/lib/types";
 
 export function SavedTopicsTab() {
-  const { topics, isLoading, reorderTopics, addTopic } = useTopics();
+  const { topics, isLoading, reorderTopics, toggleFollowTopic } = useTopics();
   const { toast } = useToast();
   
   // Local state to manage dragging synchronously with framer-motion
@@ -44,12 +44,9 @@ export function SavedTopicsTab() {
 
   const handleUnfollow = async (topic: Topic) => {
     try {
-      const updatedTopic = {
-        ...topic,
-        isFollowed: false,
-        followerCount: Math.max(0, topic.followerCount - 1),
-      };
-      await addTopic(updatedTopic);
+      // Unfollow through the dedicated mutation; addTopic re-published the
+      // topic to the API on every unfollow.
+      await toggleFollowTopic(topic.id);
       toast({
         title: "Unfollowed Topic",
         description: `You are no longer following ${topic.name}`,

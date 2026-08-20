@@ -23,6 +23,31 @@ const GUEST_STORAGE_KEY = "brain-builder-guest";
 const GUEST_PROFILE_ID = "guest-profile";
 const ONBOARDED_KEY = "brain-drain-onboarded";
 
+/** localStorage throws when site data is blocked; never let that break boot. */
+function safeLocalGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Ignore: the session simply will not be remembered.
+  }
+}
+
+function safeLocalRemove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore.
+  }
+}
+
 function makeGuestProfile(uid: string): UserProfile {
   return {
     id: uid,
@@ -78,19 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(
-    () => !localStorage.getItem(ONBOARDED_KEY),
+    () => !safeLocalGet(ONBOARDED_KEY),
   );
   const { toast } = useToast();
 
   const finishOnboarding = () => {
-    localStorage.setItem(ONBOARDED_KEY, "1");
+    safeLocalSet(ONBOARDED_KEY, "1");
     setShowOnboarding(false);
   };
 
   useEffect(() => {
     let isMounted = true;
     let unsubscribe: (() => void) | undefined;
-    const guestId = localStorage.getItem(GUEST_STORAGE_KEY);
+    const guestId = safeLocalGet(GUEST_STORAGE_KEY);
     let guestSessionActive = Boolean(guestId);
 
     const restoreGuestSession = async (uid: string) => {
@@ -206,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const services = await getFirebaseServices();
       await services.signInWithPopup(services.auth, new services.GoogleAuthProvider());
-      localStorage.removeItem(GUEST_STORAGE_KEY);
+      safeLocalRemove(GUEST_STORAGE_KEY);
     } catch (error: any) {
       console.error("Error signing in", error);
       const blocked = error?.code === "auth/popup-blocked" || error?.code === "auth/cancelled-popup-request" || error?.code === "auth/popup-closed-by-user";
@@ -224,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const continueAsGuest = async () => {
     const guestId = `guest-${crypto.randomUUID().substring(0, 8)}`;
-    localStorage.setItem(GUEST_STORAGE_KEY, guestId);
+    safeLocalSet(GUEST_STORAGE_KEY, guestId);
     const guestUser: AppUser = { uid: guestId, displayName: "Guest Builder", email: null, photoURL: null };
     const guestProfile = makeGuestProfile(guestId);
     try {
@@ -238,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logOut = async () => {
     try {
-      localStorage.removeItem(GUEST_STORAGE_KEY);
+      safeLocalRemove(GUEST_STORAGE_KEY);
       if (user && isGuestUser(user)) {
         setUser(null);
         setProfile(null);

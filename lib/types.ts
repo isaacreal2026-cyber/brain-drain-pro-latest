@@ -243,6 +243,9 @@ export interface CircleCheckIn {
   createdAt: number;
   upvotes?: number;
   downvotes?: number;
+  /** Who voted, so a vote can be changed or taken back. */
+  upvotedBy?: string[];
+  downvotedBy?: string[];
   replies?: { id: string; userId: string; content: string; createdAt: number }[];
   linkedBrainId?: string;
 }
@@ -301,6 +304,8 @@ export interface UserProfile {
     instruments?: string[];
   };
   bookmarkedPostIds?: string[];
+  openToWork?: boolean;
+  showHireButton?: boolean;
   collections?: PostCollection[];
   hiddenPostIds?: string[];
   reportedPostIds?: string[];

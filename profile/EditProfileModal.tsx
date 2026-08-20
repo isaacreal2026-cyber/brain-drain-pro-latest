@@ -110,14 +110,20 @@ export function EditProfileModal({ isOpen, onClose, profile, onSave }: EditProfi
                       <Label className="font-semibold">Open to Work</Label>
                       <p className="text-xs text-muted-foreground">Let recruiters and teams know you're looking for opportunities.</p>
                     </div>
-                    <Switch />
+                    <Switch
+                      checked={Boolean(editedProfile.openToWork)}
+                      onCheckedChange={(checked) => setEditedProfile({ ...editedProfile, openToWork: checked })}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="font-semibold">Hire Me Button</Label>
                       <p className="text-xs text-muted-foreground">Display a prominent button on your profile for freelance inquiries.</p>
                     </div>
-                    <Switch />
+                    <Switch
+                      checked={Boolean(editedProfile.showHireButton)}
+                      onCheckedChange={(checked) => setEditedProfile({ ...editedProfile, showHireButton: checked })}
+                    />
                   </div>
                 </div>
 

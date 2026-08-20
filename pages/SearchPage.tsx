@@ -10,6 +10,37 @@ import { useSocial } from "@/hooks/use-social";
 import { useTopics } from "@/hooks/use-topics";
 import { useDatabase } from "@/hooks/use-database";
 
+const RECENT_SEARCHES_KEY = "brain-builder-recent-searches";
+
+/** Storage helpers that tolerate blocked/corrupt site data. */
+function readRecentSearches(): string[] | null {
+  try {
+    const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    // A corrupt value used to be trusted and then crashed on .filter().
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRecentSearches(values: string[]) {
+  try {
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(values));
+  } catch {
+    // Recent searches are a convenience; ignore storage failures.
+  }
+}
+
+function clearRecentSearches() {
+  try {
+    localStorage.removeItem(RECENT_SEARCHES_KEY);
+  } catch {
+    // Ignore.
+  }
+}
+
 export function SearchPage() {
   const [query, setQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -25,13 +56,9 @@ export function SearchPage() {
       setQuery(queryFromUrl);
     }
 
-    const saved = localStorage.getItem("brain-builder-recent-searches");
+    const saved = readRecentSearches();
     if (saved) {
-      try {
-        setRecentSearches(JSON.parse(saved));
-      } catch (e) {
-        setRecentSearches([]);
-      }
+      setRecentSearches(saved);
     } else {
       // Mock data for initial empty state
       setRecentSearches(["Artificial Intelligence", "Logic Models", "@johndoe", "React Patterns"]);
@@ -45,7 +72,7 @@ export function SearchPage() {
     
     const updated = [trimmedQuery, ...recentSearches.filter(s => s !== trimmedQuery)].slice(0, 10);
     setRecentSearches(updated);
-    localStorage.setItem("brain-builder-recent-searches", JSON.stringify(updated));
+    writeRecentSearches(updated);
     void trackEvent("search_submitted", {
       query: trimmedQuery,
       queryLength: trimmedQuery.length,
@@ -56,7 +83,7 @@ export function SearchPage() {
     e.stopPropagation();
     const updated = recentSearches.filter(s => s !== search);
     setRecentSearches(updated);
-    localStorage.setItem("brain-builder-recent-searches", JSON.stringify(updated));
+    writeRecentSearches(updated);
   };
 
   const handleRecentClick = (search: string) => {
@@ -64,7 +91,7 @@ export function SearchPage() {
     // Move to top and persist
     const updated = [search, ...recentSearches.filter(s => s !== search)].slice(0, 10);
     setRecentSearches(updated);
-    localStorage.setItem("brain-builder-recent-searches", JSON.stringify(updated));
+    writeRecentSearches(updated);
     void trackEvent("search_recent_selected", {
       query: search,
       queryLength: search.length,
@@ -247,7 +274,7 @@ export function SearchPage() {
             {recentSearches.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => {
                 setRecentSearches([]);
-                localStorage.removeItem("brain-builder-recent-searches");
+                clearRecentSearches();
               }}>
                 Clear all
               </Button>
