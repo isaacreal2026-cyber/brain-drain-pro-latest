@@ -71,6 +71,15 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
 
   const handleShareLink = async () => {
     const currentNodes = await idb.getAllByIndex<Node>("nodes", "brain_id", brain.id);
+    // Remember that this brain was shared so the library's "Shared Brains"
+    // tab can list it.
+    try {
+      const stored = (await idb.get<Brain>("brains", brain.id)) || brain;
+      await idb.put("brains", { ...stored, sharedAt: Date.now() });
+      onUpdated?.();
+    } catch (error) {
+      console.warn("Could not record the share timestamp", error);
+    }
     const payload = JSON.stringify({ brain, nodes: currentNodes });
     const encoded = btoa(encodeURIComponent(payload));
     const base = window.location.origin + window.location.pathname;

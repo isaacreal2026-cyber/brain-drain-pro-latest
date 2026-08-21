@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMissions } from "@/hooks/use-missions";
 import { useReputation } from "@/hooks/use-reputation";
-import { MissionCategory } from "@/lib/types";
+import { Brain, MilestoneAttachment, MissionCategory, Post } from "@/lib/types";
 import { format } from "date-fns";
 import {
-  Rocket, Plus, Calendar, Target, CheckCircle2, X, Edit, Trash, PlusCircle, ArrowLeft, Sparkles, BrainCircuit, MessageSquare, Star, Award, ThumbsUp
+  Rocket, Plus, Calendar, Target, CheckCircle2, X, Edit, Trash, PlusCircle, ArrowLeft, Sparkles, BrainCircuit, MessageSquare, Star, Award, ThumbsUp, Link2, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -23,6 +23,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { idb } from "@/lib/db";
 import { useAuth } from "@/components/auth/AuthContext";
+import { useDatabase } from "@/hooks/use-database";
+import { useSocial } from "@/hooks/use-social";
 
 // Firebase/Firestore is large and only needed for the personality-based
 // recommendation. Lazy-load it to keep the Pathways page fast.
@@ -71,6 +73,16 @@ export function MissionsPage() {
   const [milestoneNotes, setMilestoneNotes] = useState<Record<string, string>>({});
   const [coordinationTagFilter, setCoordinationTagFilter] = useState("All");
   const { toast } = useToast();
+  const { brains } = useDatabase();
+  const { posts } = useSocial();
+
+  // Attachment picker state — which milestone, and which kind of evidence.
+  const [attachTarget, setAttachTarget] = useState<
+    { milestoneId: string; type: MilestoneAttachment["type"] } | null
+  >(null);
+  const [attachSearch, setAttachSearch] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkLabel, setLinkLabel] = useState("");
 
   // Keep the milestone-note editor in sync with persisted notes.
   useEffect(() => {
@@ -80,6 +92,87 @@ export function MissionsPage() {
     }
     setMilestoneNotes((prev) => ({ ...notesByMilestone, ...prev }));
   }, [milestones]);
+
+  const openAttachDialog = (milestoneId: string, type: MilestoneAttachment["type"]) => {
+    setAttachTarget({ milestoneId, type });
+    setAttachSearch("");
+    setLinkUrl("");
+    setLinkLabel("");
+  };
+
+  const addAttachment = async (milestoneId: string, attachment: MilestoneAttachment) => {
+    const milestone = milestones.find((m) => m.id === milestoneId);
+    if (!milestone) return;
+    const existing = milestone.attachments || [];
+    if (attachment.refId && existing.some((a) => a.refId === attachment.refId && a.type === attachment.type)) {
+      toast({ title: "Already attached", description: `${attachment.label} is already on this milestone.` });
+      setAttachTarget(null);
+      return;
+    }
+    await updateMilestone(milestoneId, { attachments: [...existing, attachment] });
+    setAttachTarget(null);
+    toast({ title: "Attached", description: `${attachment.label} was added as evidence.` });
+  };
+
+  const removeAttachment = async (milestoneId: string, attachmentId: string) => {
+    const milestone = milestones.find((m) => m.id === milestoneId);
+    if (!milestone) return;
+    await updateMilestone(milestoneId, {
+      attachments: (milestone.attachments || []).filter((a) => a.id !== attachmentId),
+    });
+  };
+
+  const handleAttachBrain = (brain: Brain) =>
+    addAttachment(attachTarget!.milestoneId, {
+      id: crypto.randomUUID(),
+      type: "brain",
+      label: brain.title,
+      refId: brain.id,
+      createdAt: Date.now(),
+    });
+
+  const handleAttachPost = (post: Post) =>
+    addAttachment(attachTarget!.milestoneId, {
+      id: crypto.randomUUID(),
+      type: "post",
+      label: post.content.slice(0, 60) || "Post",
+      refId: post.id,
+      createdAt: Date.now(),
+    });
+
+  const handleAttachLink = () => {
+    if (!attachTarget) return;
+    const url = linkUrl.trim();
+    if (!url) return;
+    let normalized = url;
+    try {
+      normalized = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).toString();
+    } catch {
+      toast({ title: "Invalid link", description: "Enter a valid URL, e.g. https://example.com", variant: "destructive" });
+      return;
+    }
+    void addAttachment(attachTarget.milestoneId, {
+      id: crypto.randomUUID(),
+      type: "link",
+      label: linkLabel.trim() || normalized,
+      url: normalized,
+      createdAt: Date.now(),
+    });
+  };
+
+  const openAttachment = (attachment: MilestoneAttachment) => {
+    if (attachment.type === "link" && attachment.url) {
+      window.open(attachment.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (attachment.type === "brain") {
+      setLocation("/library");
+      return;
+    }
+    if (attachment.type === "post" && attachment.refId) {
+      setLocation(`/?postId=${encodeURIComponent(attachment.refId)}`);
+    }
+  };
 
   const handleSaveMilestoneNotes = async (milestoneId: string) => {
     await updateMilestone(milestoneId, { notes: milestoneNotes[milestoneId] || "" });
@@ -484,10 +577,40 @@ export function MissionsPage() {
                                   value={milestoneNotes[ms.id] ?? ms.notes ?? ""}
                                   onChange={(e) => setMilestoneNotes({...milestoneNotes, [ms.id]: e.target.value})}
                                 />
+                                {(ms.attachments || []).length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {(ms.attachments || []).map((attachment) => (
+                                      <span
+                                        key={attachment.id}
+                                        className="inline-flex items-center gap-1.5 max-w-full pl-2 pr-1 py-1 rounded-full border border-border/60 bg-muted/40 text-xs"
+                                      >
+                                        {attachment.type === "brain" && <BrainCircuit className="w-3 h-3 text-primary shrink-0" />}
+                                        {attachment.type === "post" && <MessageSquare className="w-3 h-3 text-primary shrink-0" />}
+                                        {attachment.type === "link" && <Link2 className="w-3 h-3 text-primary shrink-0" />}
+                                        <button
+                                          type="button"
+                                          className="truncate max-w-[180px] hover:underline"
+                                          onClick={() => openAttachment(attachment)}
+                                          title={attachment.url || attachment.label}
+                                        >
+                                          {attachment.label}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          aria-label={`Remove ${attachment.label}`}
+                                          className="rounded-full p-0.5 text-muted-foreground hover:text-destructive"
+                                          onClick={() => void removeAttachment(ms.id, attachment.id)}
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                                 <div className="flex flex-wrap gap-2">
-                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"><BrainCircuit className="w-3.5 h-3.5" /> Attach Brain</Button>
-                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Attach Post</Button>
-                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5"><Target className="w-3.5 h-3.5" /> Link Resource</Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openAttachDialog(ms.id, "brain")}><BrainCircuit className="w-3.5 h-3.5" /> Attach Brain</Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openAttachDialog(ms.id, "post")}><MessageSquare className="w-3.5 h-3.5" /> Attach Post</Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => openAttachDialog(ms.id, "link")}><Target className="w-3.5 h-3.5" /> Link Resource</Button>
                                   <div className="flex-1" />
                                   <Button size="sm" className="h-7 text-xs" onClick={() => handleSaveMilestoneNotes(ms.id)}>Save Notes</Button>
                                 </div>
@@ -876,6 +999,110 @@ export function MissionsPage() {
           <DialogFooter>
             <Button onClick={handleEditSave}>Save Changes</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Milestone evidence picker (brain / post / link) */}
+      <Dialog open={Boolean(attachTarget)} onOpenChange={(open) => !open && setAttachTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {attachTarget?.type === "brain" && "Attach a Brain"}
+              {attachTarget?.type === "post" && "Attach a Post"}
+              {attachTarget?.type === "link" && "Link a Resource"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {attachTarget?.type === "link" ? (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>URL</Label>
+                <Input
+                  autoFocus
+                  placeholder="https://example.com/article"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAttachLink(); }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Label (optional)</Label>
+                <Input
+                  placeholder="What is this resource?"
+                  value={linkLabel}
+                  onChange={(e) => setLinkLabel(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAttachLink(); }}
+                />
+              </div>
+              <DialogFooter>
+                <Button onClick={handleAttachLink} disabled={!linkUrl.trim()}>Attach Link</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <Input
+                autoFocus
+                placeholder={attachTarget?.type === "brain" ? "Search your brains…" : "Search your posts…"}
+                value={attachSearch}
+                onChange={(e) => setAttachSearch(e.target.value)}
+              />
+              <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+                {attachTarget?.type === "brain" ? (
+                  brains.filter((b) => {
+                    const q = attachSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (
+                      b.title.toLowerCase().includes(q) ||
+                      (b.description || "").toLowerCase().includes(q) ||
+                      (b.category || "").toLowerCase().includes(q)
+                    );
+                  }).map((brain) => (
+                    <button
+                      key={brain.id}
+                      onClick={() => void handleAttachBrain(brain)}
+                      className="w-full text-left flex items-start gap-3 p-3 rounded-xl border border-border/50 bg-card/40 hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <BrainCircuit className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{brain.title}</div>
+                        <div className="text-xs text-muted-foreground truncate">{brain.description}</div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  posts.filter((p) => {
+                    const q = attachSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return p.content.toLowerCase().includes(q);
+                  }).map((post) => (
+                    <button
+                      key={post.id}
+                      onClick={() => void handleAttachPost(post)}
+                      className="w-full text-left flex items-start gap-3 p-3 rounded-xl border border-border/50 bg-card/40 hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
+                    </button>
+                  ))
+                )}
+
+                {attachTarget?.type === "brain" && brains.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    You have no brains yet — create one from the Brains page first.
+                  </p>
+                )}
+                {attachTarget?.type === "post" && posts.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-8 text-center">
+                    You have no posts yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

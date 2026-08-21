@@ -62,6 +62,9 @@ export function ShareBrainModal() {
       ...decoded.brain,
       id: newBrainId,
       created_at: Date.now(),
+      // Lets the library group imported brains separately.
+      importedAt: Date.now(),
+      sharedAt: undefined,
       // The root pointer has to follow the remap too, otherwise the imported
       // brain starts on a node ID that no longer exists ("Engine Halted").
       root_node_id: decoded.brain.root_node_id

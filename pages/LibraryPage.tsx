@@ -1,17 +1,96 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dashboard } from "@/components/Dashboard";
+import { BrainCard } from "@/components/BrainCard";
+import { BrainDrawer } from "@/components/BrainDrawer";
+import { RuntimeEngine } from "@/components/RuntimeEngine";
 import { BrainDNA } from "@/components/library/BrainDNA";
 import { PathwaysTab } from "@/components/library/PathwaysTab";
 import { SavedTopicsTab } from "@/components/library/SavedTopicsTab";
 import { ReadTab } from "@/components/library/ReadTab";
 import { ShareModal } from "@/components/library/ShareModal";
-import { Brain } from "@/lib/types";
-import { Database, Network, Clock, Files, Library, GitBranch, Map as MapIcon, Hash, BookOpen } from "lucide-react";
+import { Brain, Node } from "@/lib/types";
+import { useDatabase } from "@/hooks/use-database";
+import { usePathways } from "@/hooks/use-pathways";
+import { idb } from "@/lib/db";
+import { Database, Network, Clock, Files, Library, GitBranch, Map as MapIcon, Hash, BookOpen, Share2, Download, Sparkles } from "lucide-react";
 
 export function LibraryPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedBrain] = useState<Brain | null>(null);
+  const [selectedBrain, setSelectedBrain] = useState<Brain | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isEngineOpen, setIsEngineOpen] = useState(false);
+  const { brains, deleteBrain, refresh } = useDatabase();
+  const { pathways } = usePathways();
+
+  // Real content for the tabs that used to be permanent placeholders.
+  const pathwayBrainIds = useMemo(
+    () => new Set(pathways.flatMap((pathway) => pathway.brainIds || [])),
+    [pathways],
+  );
+
+  const moduleBrains = useMemo(
+    () =>
+      brains.filter((brain) => {
+        const tags = (brain.category || "").toLowerCase();
+        return (
+          pathwayBrainIds.has(brain.id) ||
+          tags.includes("module") ||
+          tags.includes("reusable")
+        );
+      }),
+    [brains, pathwayBrainIds],
+  );
+
+  const sharedBrains = useMemo(
+    () => brains.filter((b) => b.sharedAt).sort((a, b) => (b.sharedAt || 0) - (a.sharedAt || 0)),
+    [brains],
+  );
+
+  const importedBrains = useMemo(
+    () => brains.filter((b) => b.importedAt).sort((a, b) => (b.importedAt || 0) - (a.importedAt || 0)),
+    [brains],
+  );
+
+  const timeline = useMemo(() => {
+    const entries: { id: string; brain: Brain; label: string; at: number; kind: "created" | "imported" | "shared" }[] = [];
+    for (const brain of brains) {
+      if (brain.created_at) {
+        entries.push({ id: `${brain.id}-created`, brain, label: "Created", at: brain.created_at, kind: "created" });
+      }
+      if (brain.importedAt) {
+        entries.push({ id: `${brain.id}-imported`, brain, label: "Imported", at: brain.importedAt, kind: "imported" });
+      }
+      if (brain.sharedAt) {
+        entries.push({ id: `${brain.id}-shared`, brain, label: "Shared", at: brain.sharedAt, kind: "shared" });
+      }
+    }
+    return entries.sort((a, b) => b.at - a.at);
+  }, [brains]);
+
+  const openBrain = (brain: Brain) => {
+    setSelectedBrain(brain);
+    setIsDrawerOpen(true);
+  };
+
+  const exportBrain = async (brain: Brain) => {
+    const nodes = await idb.getAllByIndex<Node>("nodes", "brain_id", brain.id);
+    const blob = new Blob([JSON.stringify({ brains: [brain], nodes }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${brain.title.replace(/\s+/g, "-").toLowerCase()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const BrainGrid = ({ items }: { items: Brain[] }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {items.map((brain) => (
+        <BrainCard key={brain.id} brain={brain} onClick={() => openBrain(brain)} onUpdated={refresh} />
+      ))}
+    </div>
+  );
 
   // The Dashboard component already has its own layout, so when rendering it
   // inside the "My Brain" tab, it will take up the full space.
@@ -67,11 +146,15 @@ export function LibraryPage() {
           </TabsContent>
 
           <TabsContent value="modules" className="flex-1">
-            <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
-              <Library className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Brain Modules</h3>
-              <p className="text-muted-foreground">Brains tagged as reusable modules will appear here.</p>
-            </div>
+            {moduleBrains.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
+                <Library className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-medium">Brain Modules</h3>
+                <p className="text-muted-foreground">Brains tagged as reusable modules will appear here.</p>
+              </div>
+            ) : (
+              <BrainGrid items={moduleBrains} />
+            )}
           </TabsContent>
 
           <TabsContent value="topics" className="flex-1">
@@ -79,19 +162,27 @@ export function LibraryPage() {
           </TabsContent>
 
           <TabsContent value="shared" className="flex-1">
-            <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
-              <Network className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Shared Brains</h3>
-              <p className="text-muted-foreground">Expert systems you've shared with the network.</p>
-            </div>
+            {sharedBrains.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
+                <Network className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-medium">Shared Brains</h3>
+                <p className="text-muted-foreground">Expert systems you've shared with the network.</p>
+              </div>
+            ) : (
+              <BrainGrid items={sharedBrains} />
+            )}
           </TabsContent>
 
           <TabsContent value="imported" className="flex-1">
-            <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
-              <Files className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Imported Brains</h3>
-              <p className="text-muted-foreground">Brains you've digested from other users.</p>
-            </div>
+            {importedBrains.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
+                <Files className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-medium">Imported Brains</h3>
+                <p className="text-muted-foreground">Brains you've digested from other users.</p>
+              </div>
+            ) : (
+              <BrainGrid items={importedBrains} />
+            )}
           </TabsContent>
 
           <TabsContent value="dna" className="flex-1">
@@ -103,11 +194,37 @@ export function LibraryPage() {
           </TabsContent>
 
           <TabsContent value="timeline" className="flex-1">
-            <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
-              <Clock className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Activity Timeline</h3>
-              <p className="text-muted-foreground">Chronological history of your brain evolution.</p>
-            </div>
+            {timeline.length === 0 ? (
+              <div className="p-12 text-center border border-dashed border-border/50 rounded-xl bg-card/30">
+                <Clock className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-medium">Activity Timeline</h3>
+                <p className="text-muted-foreground">Chronological history of your brain evolution.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50 border border-border/50 rounded-xl overflow-hidden bg-card/30">
+                {timeline.map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => openBrain(entry.brain)}
+                    className="w-full text-left flex items-center gap-3 p-4 hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      {entry.kind === "created" && <Sparkles className="w-4 h-4" />}
+                      {entry.kind === "imported" && <Download className="w-4 h-4" />}
+                      {entry.kind === "shared" && <Share2 className="w-4 h-4" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">
+                        {entry.label} · {entry.brain.title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(entry.at).toLocaleString()}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -116,6 +233,22 @@ export function LibraryPage() {
         isOpen={shareModalOpen} 
         onClose={() => setShareModalOpen(false)} 
         brain={selectedBrain} 
+      />
+
+      <BrainDrawer
+        brain={selectedBrain}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onLaunch={(brain) => { setSelectedBrain(brain); setIsDrawerOpen(false); setIsEngineOpen(true); }}
+        onDelete={(brainId) => { void deleteBrain(brainId); setIsDrawerOpen(false); }}
+        onExport={(brain) => void exportBrain(brain)}
+        onUpdated={refresh}
+      />
+
+      <RuntimeEngine
+        brain={selectedBrain}
+        isOpen={isEngineOpen}
+        onClose={() => setIsEngineOpen(false)}
       />
     </div>
   );

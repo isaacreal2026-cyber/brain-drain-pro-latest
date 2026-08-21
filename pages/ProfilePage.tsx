@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Settings, MessageSquare, Network, Flame, Target, Trophy, Award, Activity, Brain, BookOpen, Compass, Star, Smile, BellOff, Calendar, Filter, Search, AtSign, QrCode, Link as LinkIcon, ExternalLink, UserPlus, Share2 } from "lucide-react";
+import { ArrowLeft, Settings, MessageSquare, Network, Flame, Target, Trophy, Award, Activity, Brain, BookOpen, Compass, Star, Smile, BellOff, Calendar, Filter, Search, AtSign, QrCode, Link as LinkIcon, ExternalLink, UserPlus, Share2, Briefcase } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { useReputation } from "@/hooks/use-reputation";
 import { useMissions } from "@/hooks/use-missions";
@@ -19,6 +19,7 @@ import { ContributionHeatmap } from "@/components/profile/ContributionHeatmap";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { ProfileJourneyChart } from "@/components/profile/ProfileJourneyChart";
 import { idb } from "@/lib/db";
+import type { UserProfile } from "@/lib/types";
 
 function getLevelTitle(level: number) {
   if (level <= 5) return "Initiate";
@@ -221,6 +222,22 @@ export function ProfilePage() {
     })
   };
 
+  /** "Hire Me" opens a DM for visitors; owners get their shareable link. */
+  const handleHireEnquiry = async () => {
+    if (!isCurrentUser) {
+      setLocation("/messages");
+      return;
+    }
+    const copied = await copyText(getProfileShareUrl());
+    toast({
+      title: copied ? "Hire link copied" : "Copy unavailable",
+      description: copied
+        ? "Share this link so people can reach you about work."
+        : "Clipboard access was blocked by your browser.",
+      variant: copied ? "default" : "destructive",
+    });
+  };
+
   const handleInviteOthers = async () => {
     const copied = await copyText(`${window.location.origin}/`);
     toast({
@@ -355,11 +372,18 @@ export function ProfilePage() {
         {/* User Identity Details */}
         <div className="space-y-3.5">
           <div>
-            <h1 className="text-2xl font-extrabold flex items-center gap-2 text-foreground tracking-tight leading-tight">
+            <h1 className="text-2xl font-extrabold flex items-center gap-2 text-foreground tracking-tight leading-tight flex-wrap">
               {currentProfile.displayName}
               {statusMessage && (
                 <Badge variant="secondary" className="font-semibold text-xs gap-1 py-0.5 px-2 bg-muted/60 text-muted-foreground border-transparent rounded-full">
                   <span>{statusEmoji}</span> {statusMessage}
+                </Badge>
+              )}
+              {/* Surfaces the "Open to Work" switch from Edit Profile, which
+                  previously had no effect anywhere. */}
+              {(currentProfile as UserProfile).openToWork && (
+                <Badge variant="outline" className="font-semibold text-xs py-0.5 px-2 rounded-full border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                  Open to Work
                 </Badge>
               )}
             </h1>
@@ -465,6 +489,15 @@ export function ProfilePage() {
               </>
             )}
 
+            {(currentProfile as UserProfile).showHireButton && (
+              <Button
+                className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer"
+                variant="default"
+                onClick={() => void handleHireEnquiry()}
+              >
+                <Briefcase className="w-3.5 h-3.5" /> Hire Me
+              </Button>
+            )}
             <Button className="font-semibold rounded-full gap-2 text-xs h-8 cursor-pointer" variant="outline" onClick={() => setIsShareModalOpen(true)}>
               <Share2 className="w-3.5 h-3.5" /> Share Profile
             </Button>

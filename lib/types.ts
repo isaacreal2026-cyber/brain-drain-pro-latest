@@ -39,6 +39,10 @@ export interface Brain {
   isFavorite?: boolean;
   /** Optional factors captured in the creation wizard. */
   traits?: string[];
+  /** Set when the owner generates a share link for this brain. */
+  sharedAt?: number;
+  /** Set when the brain arrives from someone else's share link. */
+  importedAt?: number;
 }
 
 export interface Node {
@@ -167,6 +171,18 @@ export interface Mission {
   courseId?: string; // Links to a course if it is part of one
   createdAt: number;
 }
+/** Evidence a user attaches to a milestone (a brain, a post, or a link). */
+export interface MilestoneAttachment {
+  id: string;
+  type: "brain" | "post" | "link";
+  label: string;
+  /** Brain or post id for internal attachments. */
+  refId?: string;
+  /** Absolute URL for "link" attachments. */
+  url?: string;
+  createdAt: number;
+}
+
 export interface Milestone {
   id: string;
   missionId: string;
@@ -175,6 +191,7 @@ export interface Milestone {
   completedAt?: number;
   order: number;
   notes?: string;
+  attachments?: MilestoneAttachment[];
 }
 
 export interface Course {
