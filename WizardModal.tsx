@@ -23,9 +23,11 @@ interface WizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: BrainData) => Promise<void>;
+  /** When provided the wizard edits that brain instead of creating a new one. */
+  editing?: BrainData | null;
 }
 
-export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
+export function WizardModal({ isOpen, onClose, onSave, editing = null }: WizardModalProps) {
   const [step, setStep] = useState(1);
   const { toast } = useToast();
 
@@ -39,6 +41,20 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [rootNodeId, setRootNodeId] = useState<string | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  const isEditing = Boolean(editing);
+
+  // Load the existing brain when the wizard is opened in edit mode.
+  useEffect(() => {
+    if (!isOpen || !editing) return;
+    setStep(1);
+    setTitle(editing.brain.title);
+    setCategory(editing.brain.category || "");
+    setDescription(editing.brain.description || "");
+    setTraits(editing.brain.traits || []);
+    setNodes(editing.nodes.map((node) => ({ ...node })));
+    setRootNodeId(editing.brain.root_node_id ?? editing.nodes[0]?.id ?? null);
+  }, [isOpen, editing]);
 
   const isDirty = title.trim() !== "" || category.trim() !== "" || description.trim() !== "" || traits.length > 0 || nodes.length > 0;
 
@@ -114,16 +130,17 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
     
     setIsSaving(true);
     
-    const brainId = crypto.randomUUID();
+    const brainId = editing ? editing.brain.id : crypto.randomUUID();
     const effectiveRoot = rootNodeId ?? nodes[0].id;
     const finalNodes = nodes.map(n => ({ ...n, brain_id: brainId }));
 
     const brain: Brain = {
+      ...(editing ? editing.brain : {}),
       id: brainId,
       title: title.trim(),
       category,
       description,
-      created_at: Date.now(),
+      created_at: editing ? editing.brain.created_at : Date.now(),
       root_node_id: effectiveRoot,
       // Factors entered in step 2 used to be discarded on save.
       ...(traits.length > 0 ? { traits } : {}),
@@ -131,7 +148,12 @@ export function WizardModal({ isOpen, onClose, onSave }: WizardModalProps) {
 
     try {
       await onSave({ brain, nodes: finalNodes });
-      toast({ title: "Brain Saved", description: "Successfully encoded into system memory." });
+      toast({
+        title: isEditing ? "Changes Saved" : "Brain Saved",
+        description: isEditing
+          ? "A new version was recorded on your active branch."
+          : "Successfully encoded into system memory.",
+      });
       handleClose();
     } catch (err: any) {
       toast({ title: "Save Failed", description: err.message || "Could not save to IndexedDB.", variant: "destructive" });

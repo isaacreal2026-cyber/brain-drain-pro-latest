@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Search, Plus, Network, Share, Download, PlayCircle } from "lucide-react";
 import { idb } from "@/lib/db";
 import { SampleBrainLibrary } from "@/components/ui/SampleBrainLibrary";
+import { commitBrainEdit } from "@/lib/brain-repo";
+import type { BrainData } from "@/lib/types";
 
 export function Dashboard() {
   const { brains, isLoading, saveBrainData, deleteBrain, exportData, getBrainData, refresh } = useDatabase();
@@ -25,6 +27,7 @@ export function Dashboard() {
   const [selectedBrain, setSelectedBrain] = useState<Brain | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [editingBrain, setEditingBrain] = useState<BrainData | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEngineOpen, setIsEngineOpen] = useState(false);
   const [isSamplesOpen, setIsSamplesOpen] = useState(false);
@@ -60,6 +63,27 @@ export function Dashboard() {
     setSelectedBrain(brain);
     setIsEngineOpen(true);
     setIsDrawerOpen(false); // Close drawer behind it
+  };
+
+  /** Opens the editor for an existing brain (its current branch state). */
+  const handleEditBrain = async (brain: Brain) => {
+    const data = await getBrainData(brain.id);
+    if (!data) {
+      toast({ title: "Brain unavailable", description: "Could not load this brain for editing.", variant: "destructive" });
+      return;
+    }
+    setEditingBrain(data);
+    setIsWizardOpen(true);
+  };
+
+  /** Saves from the wizard; an edit also records a version on the branch. */
+  const handleWizardSave = async (data: BrainData) => {
+    const wasEditing = Boolean(editingBrain);
+    await saveBrainData(data);
+    if (wasEditing) {
+      await commitBrainEdit(data.brain.id, data.nodes, "Edited brain logic");
+    }
+    setEditingBrain(null);
   };
 
   const handleImportSave = async (data: any[]) => {
@@ -211,6 +235,7 @@ export function Dashboard() {
         onDelete={deleteBrain}
         onFork={(b) => { setIsDrawerOpen(false); openForkDialog(b); }}
         onUpdated={refresh}
+        onEditBrain={(b) => void handleEditBrain(b)}
         onExport={(b) => {
           // Simple single export
           idb.getAllByIndex("nodes", "brain_id", b.id).then(nodes => {
@@ -228,8 +253,9 @@ export function Dashboard() {
 
       <WizardModal 
         isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        onSave={saveBrainData}
+        onClose={() => { setIsWizardOpen(false); setEditingBrain(null); }}
+        onSave={handleWizardSave}
+        editing={editingBrain}
       />
 
       <ImportModal

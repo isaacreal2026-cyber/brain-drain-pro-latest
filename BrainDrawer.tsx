@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Node } from "@/lib/types";
+import { Brain, BrainVersion, Node } from "@/lib/types";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useBrainRepo } from "@/hooks/use-brain-repo";
 import { BrainChatRuntime } from "./runtime/BrainChatRuntime";
 import { BranchManagerSidebar } from "./BranchManagerSidebar";
+import { summarizeDiff } from "@/lib/branch-merge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -29,6 +30,8 @@ interface BrainDrawerProps {
   onExport: (brain: Brain) => void;
   onFork?: (brain: Brain) => void;
   onUpdated?: () => void;
+  /** Opens the editor for this brain; edits land on the active branch. */
+  onEditBrain?: (brain: Brain) => void;
 }
 
 /** Guards against invalid/missing timestamps (date-fns throws on those). */
@@ -37,7 +40,7 @@ function formatTimestamp(value: number | undefined) {
   return Number.isNaN(date.getTime()) ? "unknown" : format(date, "MMM d, HH:mm");
 }
 
-export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport, onUpdated }: BrainDrawerProps) {
+export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExport, onUpdated, onEditBrain }: BrainDrawerProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isBranchManagerOpen, setIsBranchManagerOpen] = useState(false);
@@ -46,7 +49,122 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
   const [newListModalOpen, setNewListModalOpen] = useState(false);
   const { toast } = useToast();
   
-  const { branches, versions, pullRequests, activeBranch, createBranch, switchBranch, deleteBranch } = useBrainRepo(brain?.id || "");
+  const {
+    branches,
+    versions,
+    pullRequests,
+    activeBranch,
+    createBranch,
+    switchBranch,
+    deleteBranch,
+    renameBranch,
+    toggleProtection,
+    mergeBranch,
+    compareBranch,
+    rollbackToVersion,
+    createPullRequest,
+    resolvePullRequest,
+  } = useBrainRepo(brain?.id || "");
+
+  // Newest version per branch, used for the commit id / last-activity column.
+  const branchHeads = versions.reduce<Record<string, { id: string; created_at: number; author?: string }>>(
+    (acc, version) => {
+      const current = acc[version.branch];
+      if (!current || version.created_at > current.created_at) {
+        acc[version.branch] = { id: version.id, created_at: version.created_at, author: version.author };
+      }
+      return acc;
+    },
+    {},
+  );
+
+  const runRepoAction = async (action: () => Promise<unknown>, success?: { title: string; description?: string }) => {
+    try {
+      const result = await action();
+      if (success) toast(success);
+      return result;
+    } catch (error) {
+      toast({
+        title: "Action failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleMergeBranch = async (branchId: string) => {
+    const branch = branches.find((b) => b.id === branchId);
+    const result = (await runRepoAction(() => mergeBranch(branchId))) as
+      | { merged: boolean; summary: string }
+      | null;
+    if (!result) return;
+    toast(
+      result.merged
+        ? {
+            title: `Merged ${branch?.name ?? "branch"} into main`,
+            description: `${result.summary}. The main brain now includes these changes.`,
+          }
+        : {
+            title: "Nothing to merge",
+            description: result.summary,
+          },
+    );
+    onUpdated?.();
+  };
+
+  const handleCompareBranch = async (branchName: string) => {
+    const diff = await compareBranch(branchName);
+    toast({
+      title: `${branchName} vs main`,
+      description: summarizeDiff(diff),
+    });
+  };
+
+  const handleRollback = async (versionId: string) => {
+    const restored = (await runRepoAction(() => rollbackToVersion(versionId))) as BrainVersion | null;
+    if (!restored) return;
+    setNodes(restored.nodes);
+    toast({
+      title: "State recovered",
+      description: `${activeBranch} is back to the version from ${formatTimestamp(restored.created_at)}.`,
+    });
+    onUpdated?.();
+  };
+
+  const handleProposeChanges = async () => {
+    if (activeBranch === "main") {
+      toast({
+        title: "Switch to your branch first",
+        description: "Proposals are made from a peer branch into main.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const diff = await compareBranch(activeBranch);
+    await runRepoAction(
+      () =>
+        createPullRequest({
+          title: `Merge ${activeBranch} into main`,
+          description: summarizeDiff(diff),
+          source: activeBranch,
+        }),
+      { title: "Changes proposed", description: `${summarizeDiff(diff)} — waiting for the brain owner.` },
+    );
+  };
+
+  const handleResolvePr = async (prId: string, action: "merge" | "close") => {
+    const result = (await runRepoAction(() => resolvePullRequest(prId, action))) as
+      | { merged: boolean; summary: string }
+      | null;
+    if (!result) return;
+    toast(
+      action === "merge"
+        ? { title: "Pull request merged", description: result.summary || "The brain now includes these changes." }
+        : { title: "Pull request closed" },
+    );
+    onUpdated?.();
+  };
 
   useEffect(() => {
     if (brain && isOpen) {
@@ -381,6 +499,11 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {onEditBrain && (
+                    <DropdownMenuItem onClick={() => { onClose(); onEditBrain(brain); }}>
+                      Edit Brain
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => setIsBranchManagerOpen(true)}>Branches</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsTagModalOpen(true)}>Tags</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -477,9 +600,9 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px] font-mono h-5 bg-secondary/10 text-secondary border-secondary/20 uppercase">{v.branch}</Badge>
-                          <span className="text-[10px] font-mono text-muted-foreground">ID: {v.id}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">ID: {v.id.slice(0, 7)}</span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] font-mono hover:text-primary" onClick={() => toast({ title: "Rollback", description: `Reverting state to ${v.id}...` })}>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] font-mono hover:text-primary" onClick={() => void handleRollback(v.id)}>
                           Recover State
                         </Button>
                       </div>
@@ -492,24 +615,69 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
             <div className="space-y-4 pt-4 border-t border-border/50">
               <h4 className="text-sm font-semibold flex items-center gap-2"><GitPullRequest className="w-4 h-4 text-primary" /> Pull Requests</h4>
               <div className="space-y-2">
+                {pullRequests.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No proposals yet. Work on your own branch, then propose the changes to the owner.
+                  </p>
+                )}
                 {pullRequests.map(pr => (
-                  <div key={pr.id} className="p-3 border rounded-md bg-muted/20 hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => toast({ title: "View PR", description: pr.title })}>
-                    <div className="flex justify-between items-start mb-1">
-                       <span className="font-medium text-sm text-foreground flex items-center gap-1.5 border-b border-transparent hover:border-foreground w-max transition-all"><GitMerge className="w-4 h-4" /> {pr.title}</span>
-                       <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] uppercase">Open</Badge>
+                  <div key={pr.id} className="p-3 border rounded-md bg-muted/20 transition-colors">
+                    <div className="flex justify-between items-start mb-1 gap-2">
+                       <span className="font-medium text-sm text-foreground flex items-center gap-1.5 w-max"><GitMerge className="w-4 h-4" /> {pr.title}</span>
+                       <Badge
+                         variant="outline"
+                         className={`text-[10px] uppercase ${
+                           pr.status === "open"
+                             ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                             : pr.status === "merged"
+                               ? "bg-primary/10 text-primary border-primary/20"
+                               : "bg-muted text-muted-foreground border-border"
+                         }`}
+                       >
+                         {pr.status}
+                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground font-mono">
+                    {pr.description && (
+                      <p className="text-xs text-muted-foreground mb-2">{pr.description}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground font-mono gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span>{pr.source_branch}</span>
                         <span>→</span>
                         <span>{pr.target_branch}</span>
                       </div>
-                      <span className="text-primary hover:underline" onClick={(e) => { e.stopPropagation(); toast({ title: "Code Review", description: "Collab session opened." }) }}>Review Diffs</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() => void handleCompareBranch(pr.source_branch)}
+                        >
+                          Review Diffs
+                        </button>
+                        {pr.status === "open" && (
+                          <>
+                            <button
+                              type="button"
+                              className="text-emerald-500 hover:underline"
+                              onClick={() => void handleResolvePr(pr.id, "merge")}
+                            >
+                              Adopt
+                            </button>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:underline"
+                              onClick={() => void handleResolvePr(pr.id, "close")}
+                            >
+                              Close
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <Button className="w-full text-primary" variant="secondary" onClick={() => toast({ title: "Pull Request", description: "Propose your changes to the main code." })}>
+              <Button className="w-full text-primary" variant="secondary" onClick={() => void handleProposeChanges()}>
                  <GitPullRequest className="w-4 h-4 mr-2" /> Propose Changes
               </Button>
             </div>
@@ -681,9 +849,19 @@ export function BrainDrawer({ brain, isOpen, onClose, onLaunch, onDelete, onExpo
         brainId={brain.id}
         branches={branches}
         activeBranch={activeBranch}
-        onSwitchBranch={switchBranch}
-        onCreateBranch={createBranch}
-        onDeleteBranch={deleteBranch}
+        branchHeads={branchHeads}
+        onSwitchBranch={(branchId) => void runRepoAction(async () => {
+          await switchBranch(branchId);
+          const refreshed = await idb.getAllByIndex<Node>("nodes", "brain_id", brain.id);
+          setNodes(refreshed);
+          onUpdated?.();
+        })}
+        onCreateBranch={(name) => void runRepoAction(() => createBranch(name))}
+        onDeleteBranch={(branchId) => void runRepoAction(() => deleteBranch(branchId))}
+        onRenameBranch={(branchId, name) => runRepoAction(() => renameBranch(branchId, name)).then(() => undefined)}
+        onToggleProtection={(branchId) => runRepoAction(() => toggleProtection(branchId)).then(() => undefined)}
+        onMergeBranch={(branchId) => handleMergeBranch(branchId)}
+        onCompareBranch={(branchName) => handleCompareBranch(branchName)}
       />
     </Sheet>
   );

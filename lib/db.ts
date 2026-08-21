@@ -1,5 +1,5 @@
 const DB_NAME = "brainBuilder";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -129,6 +129,25 @@ export function openDB(): Promise<IDBDatabase> {
           analyticsStore.createIndex("sessionId", "sessionId", { unique: false });
           analyticsStore.createIndex("createdAt", "createdAt", { unique: false });
           analyticsStore.createIndex("route", "route", { unique: false });
+        }
+      }
+
+      if (oldVersion < 7) {
+        // Collaborative brain repository: peers work on their own branch and
+        // the brain owner adopts (merges) the parts they want.
+        if (!db.objectStoreNames.contains("brain_branches")) {
+          const branchStore = db.createObjectStore("brain_branches", { keyPath: "id" });
+          branchStore.createIndex("brain_id", "brain_id", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("brain_versions")) {
+          const versionStore = db.createObjectStore("brain_versions", { keyPath: "id" });
+          versionStore.createIndex("brain_id", "brain_id", { unique: false });
+          versionStore.createIndex("branch", "branch", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("brain_prs")) {
+          const prStore = db.createObjectStore("brain_prs", { keyPath: "id" });
+          prStore.createIndex("brain_id", "brain_id", { unique: false });
+          prStore.createIndex("status", "status", { unique: false });
         }
       }
     };

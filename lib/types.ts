@@ -5,6 +5,8 @@ export interface BrainVersion {
   message: string;
   nodes: Node[];
   created_at: number;
+  /** Who recorded this version ("me" for the local user, or a peer handle). */
+  author?: string;
 }
 
 export interface Branch {
@@ -12,8 +14,13 @@ export interface Branch {
   brain_id: string;
   name: string;
   isMain: boolean;
+  /** The version this branch was cut from — the shared base used when merging. */
   parent_version_id?: string;
   created_at: number;
+  /** Who owns this line of work. */
+  author?: string;
+  /** Protected branches cannot be deleted or renamed. */
+  isProtected?: boolean;
 }
 
 export interface PullRequest {
@@ -25,6 +32,8 @@ export interface PullRequest {
   target_branch: string;
   status: "open" | "merged" | "closed";
   created_at: number;
+  author?: string;
+  resolved_at?: number;
 }
 
 export interface Brain {
